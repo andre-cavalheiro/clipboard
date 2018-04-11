@@ -1,12 +1,18 @@
-#define INBOUND_FIFO "INBOUND_FIFO"
-#define OUTBOUND_FIFO "OUTBOUND_FIFO"
 #define READ_REQUEST 0
 #define WRITE_REQUEST 1
-#include <sys/types.h>
+#define SOCKET_NAME "clipboardSocket"
+#define SOCKET_QUEUE_LENGTH 5
+#define SOCK_ADDRESS "/tmp/clipboardSocket"
 
-/* _msg structure
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+
+
+/** _msg structure
  * 
  * Structure used for communication between APP and clipboard
+ *
  * int option - 		READ_REQUEST - requests to read a message from region
  * 						WRITE_REQUEST - request to write a message to region
  * 
@@ -17,14 +23,13 @@
  * size_t msg_size - 	message size
  * 
  * */
-
-typedef struct _msg{
-	int option;
+struct _msg{
+	int option;			//make it a boolean?
 	int region;
 	void* message;
 	size_t msg_size;
 
- }
+ };
 
 int clipboard_connect(char * clipboard_dir);
 int clipboard_copy(int clipboard_id, int region, void *buf, size_t count);

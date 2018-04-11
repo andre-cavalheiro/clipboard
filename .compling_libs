@@ -1,0 +1,1 @@
+gcc -Wall -c library.c -o library.o
