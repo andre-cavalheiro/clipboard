@@ -15,7 +15,6 @@ clipboard_dir. This function returns the file descriptor of the newly created an
 */
 int clipboard_connect(char * clipboard_dir){
 	struct sockaddr_un local_addr;		//Isto torna só valido para AF_UNIX
-
 	/*Concat clipboard_dir to SOCKET_NAME to variable path 	-----  NOT IMPLEMENTES
 	char *path = malloc(strlen(clipboard_dir)+strlen(SOCKET_NAME)+1);//+1 for the null-terminator
 	strcpy(path, clipboard_dir);
@@ -29,16 +28,11 @@ int clipboard_connect(char * clipboard_dir){
 	//Bind socket to local address
 	local_addr.sun_family = AF_UNIX;
 	strcpy(local_addr.sun_path, SOCK_ADDRESS);
-	if(bind(sock_fd, (struct sockaddr *)&local_addr, sizeof(local_addr)) == -1) {
-		perror("bind");
-		return -1;
-	}
-	printf(" socket created and binded \n");
-	//Enabeling connections
-	if(listen(sock_fd,SOCKET_QUEUE_LENGTH) == -1){
-		perror("listen");
-		return -1;
-	}
+    if(connect(sock_fd,(struct sockaddr *)&local_addr,sizeof(struct sockaddr))==-1){
+        perror("connect: ");
+        return -1;
+    }
+
 	return sock_fd;
 
 }
@@ -50,8 +44,8 @@ descriptor)
 int clipboard_copy(int clipboard_id, int region, void *buf, size_t count){
 
 	//allocates memory for structures
-	char* msg = (char*)malloc(sizeof(_msg));
-	_msg* send_msg = (_msg*)malloc(sizeof(_msg));
+	char* msg = (char*)malloc(sizeof(struct _msg));
+	struct _msg* send_msg = (struct _msg*)malloc(sizeof(struct _msg));
 	
 	//fills structure for transit
 	send_msg->option = WRITE_REQUEST;
@@ -59,10 +53,10 @@ int clipboard_copy(int clipboard_id, int region, void *buf, size_t count){
 	send_msg->message = buf;
 	send_msg->msg_size = count;
 	
-	memcpy(msg,send_msg, sizeof(_msg));
+	memcpy(msg,send_msg, sizeof(struct _msg));
 	
 	//sends message to clipboard
-	if (send(clipboard_id,msg,sizeof(_msg),0) == -1){
+	if (send(clipboard_id,msg,sizeof(struct _msg),0) == -1){
 		perror("send");
 	}
 
@@ -79,18 +73,18 @@ the same file descriptor)
 int clipboard_paste(int clipboard_id, int region, void *buf, size_t count){
 
 	//allocates memory for structures
-	char* msg = (char*)malloc(sizeof(_msg));
-	_msg* send_msg = (_msg*)malloc(sizeof(_msg));
+	char* msg = (char*)malloc(sizeof(struct _msg));
+	struct _msg* send_msg = (struct _msg*)malloc(sizeof(struct _msg));
 	
 	//fills structure for transit
 	send_msg->option = READ_REQUEST;
 	send_msg->region = region;
 	
-	memcpy(msg,send_msg, sizeof(_msg));
+	memcpy(msg,send_msg, sizeof(struct _msg));
 
 	
 	//writes request to clipboard	
-	if(send(clipboard_id,msg,sizeof(_msg)) == -1){
+	if(send(clipboard_id,msg,sizeof(struct _msg),0) == -1){
 		perror("send");
 	}
 	

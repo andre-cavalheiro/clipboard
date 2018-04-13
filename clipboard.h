@@ -2,11 +2,12 @@
 #define WRITE_REQUEST 1
 #define SOCKET_NAME "clipboardSocket"
 #define SOCKET_QUEUE_LENGTH 5
-#define SOCK_ADDRESS "/tmp/clipboardSocket"
+#define SOCK_ADDRESS "./clipboardSocket"
 
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <unistd.h>
 
 
 /** _msg structure
