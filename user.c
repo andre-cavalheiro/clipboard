@@ -13,9 +13,9 @@ int main(){
     char * str = (char*)malloc(sizeof(char)*100) ;
 
     while(strcmp(str,"exit\n") != 0){
-        printf("Ready to receive message\n");
+        printf("Write your message\n");
         str=fgets(str,100,stdin);
-        clipboard_copy(fd,3,str,100);
+        clipboard_copy(fd,3,str, sizeof(str));
     }
 
     exit(0);

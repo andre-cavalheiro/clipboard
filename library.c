@@ -15,10 +15,6 @@ clipboard_dir. This function returns the file descriptor of the newly created an
 */
 int clipboard_connect(char * clipboard_dir){
 	struct sockaddr_un local_addr;		//Isto torna só valido para AF_UNIX
-	/*Concat clipboard_dir to SOCKET_NAME to variable path 	-----  NOT IMPLEMENTES
-	char *path = malloc(strlen(clipboard_dir)+strlen(SOCKET_NAME)+1);//+1 for the null-terminator
-	strcpy(path, clipboard_dir);
-	strcat(path, SOCKET_NAME);*/
 	//Create Socket
 	int sock_fd= socket(AF_UNIX,SOCK_STREAM , 0);
 	if (sock_fd == -1){
@@ -32,7 +28,7 @@ int clipboard_connect(char * clipboard_dir){
         perror("connect: ");
         return -1;
     }
-
+	//Return socket file descriptor
 	return sock_fd;
 
 }
@@ -42,27 +38,35 @@ data to clipboard, using a socket (all reads and writes will be done in the same
 descriptor)
 */
 int clipboard_copy(int clipboard_id, int region, void *buf, size_t count){
+	struct msg * msgInit = (struct msg*)malloc(sizeof(struct msg));
 
-	//allocates memory for structures
-	char* msg = (char*)malloc(sizeof(struct _msg));
-	struct _msg* send_msg = (struct _msg*)malloc(sizeof(struct _msg));
-	
 	//fills structure for transit
-	send_msg->option = WRITE_REQUEST;
-	send_msg->region = region;
-	send_msg->message = buf;
-	send_msg->msg_size = count;
-	
-	memcpy(msg,send_msg, sizeof(struct _msg));
-	
+	msgInit->option = WRITE_REQUEST;
+	msgInit->region = region;
+	msgInit->msg_size = count;
+
+	//Prepares message to send
+	char * msgInitInString = (char*)malloc(sizeof(char)* sizeof(msgInit));
+	if(memcpy(msgInitInString,msgInit, (int)sizeof(msgInit)) == NULL){
+		perror("Allocating msgInitInString");
+		return -1;
+	};
+
 	//sends message to clipboard
-	if (send(clipboard_id,msg,sizeof(struct _msg),0) == -1){
+	if (send(clipboard_id,msgInitInString,sizeof(struct msg),0) == -1){
 		perror("send");
+		return -1;
+	} else{
+		int bytesSent=0;
+		//Send the actual message
+		//FIXME while(send ?
+		bytesSent = send(clipboard_id,buf,count,0);
+		printf("[clipboard_copy] Sent %d bytes -- Message was %d bytes\n",bytesSent,(int)count);
 	}
 
 	//frees temp message
-	free(send_msg);
-	
+	free(msgInit);
+	return 0;
 }
 
 
@@ -70,24 +74,26 @@ int clipboard_copy(int clipboard_id, int region, void *buf, size_t count){
 retrieve/paste data from the clipboard, using a socket (all reads and writes will be done in
 the same file descriptor)
 */
+
+/*
 int clipboard_paste(int clipboard_id, int region, void *buf, size_t count){
 
 	//allocates memory for structures
-	char* msg = (char*)malloc(sizeof(struct _msg));
-	struct _msg* send_msg = (struct _msg*)malloc(sizeof(struct _msg));
-	
+	char* msg = (char*)malloc(sizeof(struct msg));
+	struct msg* send_msg = (struct msg*)malloc(sizeof(struct msg));
+
 	//fills structure for transit
 	send_msg->option = READ_REQUEST;
 	send_msg->region = region;
-	
-	memcpy(msg,send_msg, sizeof(struct _msg));
 
-	
-	//writes request to clipboard	
-	if(send(clipboard_id,msg,sizeof(struct _msg),0) == -1){
+	memcpy(msg,send_msg, sizeof(struct msg));
+
+
+	//writes request to clipboard
+	if(send(clipboard_id,msg,sizeof(struct msg),0) == -1){
 		perror("send");
 	}
-	
+
 	//reads buf message from clipbord
 	if(recv(clipboard_id, buf, sizeof(count), 0) == -1 ){
 		perror("receive");
@@ -95,3 +101,4 @@ int clipboard_paste(int clipboard_id, int region, void *buf, size_t count){
 
 	free(send_msg);
 }
+*/
