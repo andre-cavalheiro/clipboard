@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <arpa/inet.h>
  
 int main(){
 
@@ -16,37 +17,40 @@ int main(){
 	char* msg = (char*)malloc(sizeof(struct _msg));
 	struct _msg* send_msg = (struct _msg*)malloc(sizeof(struct _msg));
 
-
-	//Create Socket
-	struct sockaddr_un * local_addr;		//Isto torna só valido para AF_UNIX
-	int sock_id= socket(AF_UNIX,SOCK_STREAM , 0);
-	if (sock_id == -1){
-		perror("socket: ");
+	/**
+	 * Internet Socket ---------------------------------------------------
+	 *
+	 */
+	//Create Internet Socket
+	struct sockaddr_in backup_addr;
+	int sockIn_id = socket(AF_INET,SOCK_STREAM,0);
+	if (sockIn_id == -1){
+		perror("Internet socket : ");
 		return -1;
 	}
-	//Bind socket to local address
-	local_addr->sun_family = AF_UNIX;
-	strcpy(local_addr->sun_path, SOCK_ADDRESS);
-	unlink(SOCK_ADDRESS);
-	if(bind(sock_id,(struct sockaddr *) local_addr, sizeof(struct sockaddr)) == -1) {
-		perror("bind");
-		return -1;
+	//Bind Internet Socket to backup address
+	backup_addr.sin_family = AF_INET;
+	backup_addr.sin_port= htons(3000);
+	inet_aton("127.0.0.1", &backup_addr.sin_addr);
+
+	int err = bind(sockIn_id, (struct sockaddr *)&backup_addr, sizeof(struct sockaddr));
+	if(err == -1) {
+		perror("Internet bind");
+		exit(-1);
 	}
 	printf(" socket created and binded \n");
-	//Enabeling connections
-	if(listen(sock_id,SOCKET_QUEUE_LENGTH) == -1) {
-		perror("listen");
-		return -1;
-	}
-    printf("Listening...\n");
 
-    socklen_t addrLen = sizeof(local_addr);
+	listen(sockIn_id, 5);
+
+
+    socklen_t addrLen = sizeof(backup_addr);
 	int fdClient;
 	//Clipboard awaits orders
 	while(1){
         printf("Ready to accept\n");
-		addrLen = sizeof(local_addr);
-		fdClient = accept(sock_id,(struct sockaddr *)local_addr,&addrLen);
+		addrLen = sizeof(backup_addr);
+		fdClient = accept(sockIn_id,(struct sockaddr *)&backup_addr,&addrLen);
+		printf("Accepted connection \n");
 
 		while(recv(fdClient, msg, sizeof(struct _msg),0) > 0){
             printf(">>> %s \n",(char*)send_msg->message );
@@ -63,7 +67,6 @@ int main(){
 					perror("send");
 				}
 			}
-
 		}
 		close(fdClient);
 	}

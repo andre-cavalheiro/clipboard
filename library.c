@@ -15,10 +15,6 @@ clipboard_dir. This function returns the file descriptor of the newly created an
 */
 int clipboard_connect(char * clipboard_dir){
 	struct sockaddr_un local_addr;		//Isto torna só valido para AF_UNIX
-	/*Concat clipboard_dir to SOCKET_NAME to variable path 	-----  NOT IMPLEMENTES
-	char *path = malloc(strlen(clipboard_dir)+strlen(SOCKET_NAME)+1);//+1 for the null-terminator
-	strcpy(path, clipboard_dir);
-	strcat(path, SOCKET_NAME);*/
 	//Create Socket
 	int sock_fd= socket(AF_UNIX,SOCK_STREAM , 0);
 	if (sock_fd == -1){
