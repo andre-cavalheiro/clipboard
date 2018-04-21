@@ -1,0 +1,7 @@
+>>Compiling everything    
+
+gcc -Wall -c -o lib.o socket_lib.c && gcc -Wall -o testServer.o testSocketLibServer.c lib.o && gcc -Wall -o testClient.o testSocketLibClient.c lib.o
+
+
+>>Compiling library only
+gcc -Wall -c -o lib.o socket_lib.c 
