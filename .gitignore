@@ -1,0 +1,5 @@
+.idea/*
+cmake-build-debug
+socket_420
+*.o
+clipboardSoc 
