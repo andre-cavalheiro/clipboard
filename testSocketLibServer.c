@@ -3,6 +3,7 @@
 //Compiling everything    gcc -Wall -c -o lib.o socket_lib.c && gcc -Wall -o testServer.o testSocketLibServer.c lib.o && gcc -Wall -o testClient.o testSocketLibClient.c lib.o
 
 int main(){
+    DECLARE(int,5);
 
     //Create Sockets
     int sockUn = createSocket(AF_UNIX,SOCK_STREAM);
@@ -31,7 +32,6 @@ int main(){
         printf("Received data: %s \n",data);
 
     }
-
     close (clientUn);
 
     return 0;

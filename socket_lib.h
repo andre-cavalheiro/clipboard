@@ -16,6 +16,7 @@
 #include <sys/stat.h>
  */
 
+#define DECLARE(type,value) type _tmp = value;
 
 
 int createSocket(int domain, int type);
