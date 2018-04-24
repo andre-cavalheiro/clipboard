@@ -19,10 +19,14 @@ int main(){
         printf("Write a message\n");
         str = fgets(str,real_size, stdin);
         printf("Initiating Handshake:\n\t%s\tsize is %zd\n",str,real_size);
-        //Handshake
-        handShakeUn(sockUnCl,&real_size);
+        //AF_UNIX
+        /*handShakeUn(sockUnCl,&real_size);
         printf("Sending data\n");
-        sendData(sockUnCl,real_size,str);
+        sendData(sockUnCl,real_size,str);*/
+        //AF_INET
+        handShakeUn(sockInCl,&real_size);
+        printf("Sending data\n");
+        sendData(sockInCl,real_size,str);
     }
 
 
