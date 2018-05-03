@@ -204,7 +204,6 @@ char * receiveData(int sockId,size_t size){
     char * str = (char *)malloc(size+1);
     printf("\t Entering read loop \n");
     while(count > 0){
-        printf("\t You lil shit %zd \t %zd \t %s \n",size,count,str);
         if((readBytes = recv(sockId,str+readBytes,size,0)) == -1){
             perror("sendData write: ");
             exit(-1);

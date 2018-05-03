@@ -1,4 +1,11 @@
->>Compiling everything    
+>>Compiling with threads
+gcc -Wall -pthread -o threads threads.c 
+
+>>Para ver o tempo q o programa demora
+time ./<prog>
+
+
+>>Compiling everything related to socket lib    
 
 gcc -Wall -c -o lib.o socket_lib.c && gcc -Wall -o testServer.o testSocketLibServer.c lib.o && gcc -Wall -o testClient.o testSocketLibClient.c lib.o
 

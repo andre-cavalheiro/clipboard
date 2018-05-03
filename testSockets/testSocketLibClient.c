@@ -9,8 +9,8 @@ int main(){
     //Client
     UnixClientSocket(sockUnCl,SOCK_LOCAL_ADDR);
     printf("boop\n");
-    /*InternetClientSocket(sockInCl,"localhost",3000);
-    printf("boop\n");*/
+    InternetClientSocket(sockInCl,"localhost",3000);
+    printf("boop\n");
 
     //Getting information from stdin and sending it
     size_t real_size = sizeof(char)*100;
@@ -20,13 +20,13 @@ int main(){
         str = fgets(str,real_size, stdin);
         printf("Initiating Handshake:\n\t%s\tsize is %zd\n",str,real_size);
         //AF_UNIX
-        handShakeUn(sockUnCl,&real_size);
+        /*handShakeUn(sockUnCl,&real_size);
         printf("Sending data\n");
-        sendData(sockUnCl,real_size,str);
+        sendData(sockUnCl,real_size,str);*/
         //AF_INET
-        /*handShakeUn(sockInCl,&real_size);
+        handShakeUn(sockInCl,&real_size);
         printf("Sending data\n");
-        sendData(sockInCl,real_size,str);*/
+        sendData(sockInCl,real_size,str);
     }
 
 
