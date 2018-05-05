@@ -11,4 +11,4 @@ gcc -Wall -c -o lib.o socket_lib.c && gcc -Wall -o testServer.o testSocketLibSer
 
 
 >>Compiling library only
-gcc -Wall -c -o lib.o socket_lib.c 
+gcc -Wall -c -o socketlib.o socket_lib.c 
