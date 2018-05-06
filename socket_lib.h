@@ -2,12 +2,15 @@
 #include <stdio.h>
 #include <string.h>
 
+
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 
 #define SOCK_LOCAL_ADDR "./socket_420"      //Criar name com pid()? Se sim então têm de ser em /tmp e temos de garantir unlink
+#define COPY_RQST = 0
+#define PASTE_RQSR = 1
 
 
 struct msg{

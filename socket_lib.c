@@ -166,13 +166,11 @@ int handShake(int sockId, size_t * size, int action,int region){        //action
  * @return
  */
 struct msg * handleHandShake(int clientId){
-    char * received = malloc(sizeof(struct msg)* sizeof(char));
-    printf("boop 1\n");
+    char * received = malloc(sizeof(struct msg));
     if((read(clientId,&received,sizeof(size_t)))==-1){
         perror("handleHandshake read: ");
         //return -1;
     }
-    printf("boop 2\n");
     struct msg * info = malloc(sizeof(struct msg));
     memcpy(info,received,sizeof(struct msg));
     size_t size = info->msg_size;
