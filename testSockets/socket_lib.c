@@ -117,70 +117,68 @@ int InternetClientSocket(int sockId, char *ip, int port){
 
 
 /**
- * Informs (server) Unix socket about the the type of comunication that's about to happen and awaits confirmation
+ * Informs (server) Unix socket about the size of data that it's about to be sent and awaits confirmation
  * from it
-
  *
  * @param sockId
- * @param type
+ * @param size
  * @return
  */
-int handShake(int sockId, char * info, size_t size){      //type should be int, not pointer.
-    printf("\t[Handshake] about to send %s\n",info);
-    if((write(sockId, info, size ))==-1){
+int handShakeUn(int sockId, size_t * size){
+    printf("\tsize: %zd \n", *size);
+    if((write(sockId,size, sizeof(size_t)))==-1){      //verificar se foram mesmo mandados sizeof(size_t) bytes?
         perror("handshake write: ");
         return -1;
     }
-    int received;
-    //Receive integer 1 to confirm reception
-    if((read(sockId,&received,sizeof(int)))==-1){
+    size_t received;
+    if((read(sockId,&received,sizeof(size_t)))==-1){
         perror("handshake read: ");
         return -1;
     }
-    if(received != 1){
+    printf("\tReceived size: %zd \n", received);
+    if(*size != received){
         printf("handshake miscommunication \n");
         return -1;
     }
-    printf("\t[Handshake] Successful \n");
+    printf("\tSuccessful \n");
     return 0;
 }
 
 
 /**
- * Receives information from the (client) socket about the type of comunication that's about to happen and
+ * Receives information from the (client) socket about the amount of data that it's about to be sent and
  * acknowledges it
  *
  * @param clientId
  * @return
  */
-char * handleHandShake(int clientId){
-    char * received = malloc(sizeof(struct metaData));
-    if((read(clientId,received,sizeof(struct metaData)))==-1){
+size_t handleHandShake(int clientId){
+    size_t received;
+    if((read(clientId,&received,sizeof(size_t)))==-1){
         perror("handleHandshake read: ");
         return -1;
     }
-    printf("\t[Handle Handshake] Just received %s \n",received);
-    //Send integer 1 to confirm reception
-    int confirm = 1;
-    if((write(clientId,&confirm, sizeof(int)))==-1){
+    printf("\tReceived from client: %zd \n", received);
+    if((write(clientId,&received, sizeof(size_t)))==-1){
         perror("handleHandshake write: ");
         return -1;
     }
-    printf("\t[Handle Handshake] Successful \n");
+    printf("\tSuccessful \n");
     return received;
 }
 
 /**
- * Sends Data
+ * Sends string
  *
  * @param sockId
  * @param size
  * @param msg
  * @return
  */
-int sendData(int sockId, size_t size, void * msg){
+int sendData(int sockId, size_t size, char * msg){
     size_t count = size;
     size_t sentBytes = 0;
+    printf("\t Entering write loop \n");
     while(count > 0){
         if((sentBytes = send(sockId,msg,size,0))==-1){
             perror("sendData write: ");
@@ -194,30 +192,28 @@ int sendData(int sockId, size_t size, void * msg){
 }
 
 /**
- * Receives Data
+ * Receives string
  *
  * @param sockId
  * @param size
  * @return
  */
-void * receiveData(int sockId,size_t size){
+char * receiveData(int sockId,size_t size){
     size_t count = size;
     size_t readBytes = 0;
-    void * str = malloc(size+1);
+    char * str = (char *)malloc(size+1);
+    printf("\t Entering read loop \n");
     while(count > 0){
         if((readBytes = recv(sockId,str+readBytes,size,0)) == -1){
             perror("sendData write: ");
             exit(-1);
         }
+        printf("\t Read %zd bytes --> %s \n",readBytes, str);
         count -= readBytes;
     }
-    printf("\tTotal message is %s \n",(char*)str);
+    printf("\tTotal message is %s \n",str);
     return str;
 }
-
-
-
-
 
 /***
     >Teoria de Sockets:
