@@ -128,7 +128,7 @@ int InternetClientSocket(int sockId, char *ip, int port){
  * @return
  */
 int handShake(int sockId, void * info, size_t size){      //type should be int, not pointer.
-    printf("\t[Handshake] about to send %s\n",(char*)info);
+    //printf("\t[Handshake] about to send %s\n",(char*)info);
     if((write(sockId, info, size ))==-1){
         perror("handshake write: ");
         return -1;
@@ -161,7 +161,7 @@ void * handleHandShake(int clientId, size_t size){
         perror("handleHandshake read: ");
         return -1;
     }
-    printf("\t[Handle Handshake] Read Data \n");
+    //printf("\t[Handle Handshake] Read Data \n");
     //Send integer 1 to confirm reception
     int confirm = 1;
     if((write(clientId,&confirm, sizeof(int)))==-1){

@@ -77,14 +77,19 @@ void * handleClient(void * client_){
                 //client wants to send data to server (Copy)
                 printf("[Thread] Client wants to copy region %d with size %zd\n",info.region,info.msg_size);
                 data = malloc(info.msg_size);
-                data = (char*)receiveData(*client,info.msg_size);
+                data = (char*)receiveData(*client,info.msg_size);       //Isto vai partir para quando as mensagens tiverem constantemente a mudar de tamanho
                 strcpy(clipboard[info.region], data);
                 printf("[Thread] Copy completed: %s \n",data);
                 break;
             case 1:
                 //client is requesting data from server (Paste)
-                printf("[Thread] Client wants to paste region %d with size %zd\n",info.region,info.msg_size);
-                sendData(*client,MAX_STR_SIZE,clipboard[info.region]);      //Get rid of MAX_STR_SIZE
+                printf("[Thread] Client wants to paste region %d\n",info.region);
+                info.msg_size=100;  //Temporário!
+                //Informar cliente do tamanho da mensagem
+                memcpy(bytestream,&info,sizeof(struct metaData));
+                handShake(*client,bytestream,sizeof(struct metaData));
+                //Enviar mensagem
+                sendData(*client,info.msg_size,clipboard[info.region]);
                 printf("Paste completed\n");
                 break;
             default:
@@ -92,9 +97,9 @@ void * handleClient(void * client_){
                 pthread_exit(NULL);
                 break;
         }
-        printf("[Thread] Clipboard state: \n");
+        printf("[Thread] Final clipboard state: \n");
         for(int i=0; i<REGION_SIZE; i++){
-            printf("\t[%d]: %s\n",i,clipboard[i]);
+            printf("\t[%d]: %s \n",i,clipboard[i]);
         }
 
     }
