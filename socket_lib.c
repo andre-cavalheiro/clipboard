@@ -12,7 +12,7 @@
  */
 int createSocket(int domain, int type){
     //Create
-    int sockId= socket(domain , type , 0);
+    int sockId = socket(domain , type , 0);
     if (sockId == -1){
         perror("socket: ");
         return -1;
@@ -87,10 +87,12 @@ int UnixClientSocket(int sockId , char * path){
     struct sockaddr_un local_addr ;
     local_addr.sun_family = AF_UNIX;
     strcpy(local_addr.sun_path, path);
+    printf("[UnixClientSocket] About to connect %d\n",sockId);
     if(connect(sockId, (const struct sockaddr *) &local_addr, sizeof(struct sockaddr_un))==-1){
         perror("connect: ");
         return -1;
     }
+
     return  sockId;
 }
 
@@ -125,8 +127,8 @@ int InternetClientSocket(int sockId, char *ip, int port){
  * @param type
  * @return
  */
-int handShake(int sockId, char * info, size_t size){      //type should be int, not pointer.
-    printf("\t[Handshake] about to send %s\n",info);
+int handShake(int sockId, void * info, size_t size){      //type should be int, not pointer.
+    printf("\t[Handshake] about to send %s\n",(char*)info);
     if((write(sockId, info, size ))==-1){
         perror("handshake write: ");
         return -1;
@@ -153,13 +155,13 @@ int handShake(int sockId, char * info, size_t size){      //type should be int, 
  * @param clientId
  * @return
  */
-char * handleHandShake(int clientId){
-    char * received = malloc(sizeof(struct metaData));
-    if((read(clientId,received,sizeof(struct metaData)))==-1){
+void * handleHandShake(int clientId, size_t size){
+    char * received = malloc(size);
+    if(read(clientId,received,size)==-1){
         perror("handleHandshake read: ");
         return -1;
     }
-    printf("\t[Handle Handshake] Just received %s \n",received);
+    printf("\t[Handle Handshake] Read Data \n");
     //Send integer 1 to confirm reception
     int confirm = 1;
     if((write(clientId,&confirm, sizeof(int)))==-1){
@@ -181,6 +183,7 @@ char * handleHandShake(int clientId){
 int sendData(int sockId, size_t size, void * msg){
     size_t count = size;
     size_t sentBytes = 0;
+    //printf("[sendData] About to send: %s",msg);
     while(count > 0){
         if((sentBytes = send(sockId,msg,size,0))==-1){
             perror("sendData write: ");
@@ -189,7 +192,7 @@ int sendData(int sockId, size_t size, void * msg){
         printf("\t Wrote %zd bytes \n",sentBytes);
         count -= sentBytes;
     }
-    printf("\tTotal message sent\n");
+    //printf("\t[sendData] Total message sent\n");
     return 0;
 }
 
@@ -204,14 +207,16 @@ void * receiveData(int sockId,size_t size){
     size_t count = size;
     size_t readBytes = 0;
     void * str = malloc(size+1);
+    //printf("[ReceiveData] Receiving:\n");
     while(count > 0){
         if((readBytes = recv(sockId,str+readBytes,size,0)) == -1){
             perror("sendData write: ");
-            exit(-1);
+            return NULL;
         }
         count -= readBytes;
+
     }
-    printf("\tTotal message is %s \n",(char*)str);
+    //printf("\t[ReceiveData] %s \n",str);
     return str;
 }
 

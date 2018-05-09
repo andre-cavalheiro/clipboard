@@ -2,20 +2,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "clipboard.h"
 #include "socket_lib.h"
 
 #define MAX_CLIENTS 10
 #define REGION_SIZE 10
 
-//gcc -Wall -o socketlib.o -c socket_lib.c
-//gcc -Wall -pthread -o clipboard.o clipboard.c socketlib.o
+/*
+gcc -Wall -o socketlib.o -c socket_lib.c && gcc -Wall -pthread -o clipboard.o clipboard.c socketlib.o && mv clipboard.o cmake-build-debug/ && ./cmake-build-debug/clipboard.o
+ */
 
 //Functions
 void * handleClient(void * client_);
 
 //Global Variables
 int numClients = 0;
-char** clipboard;
+char** clipboard;           //Should be struct with char * and size?
 
 
 int main(int argc, char** argv) {
@@ -68,19 +70,22 @@ void * handleClient(void * client_){
     struct metaData info;
     while(1){
         printf("[Thread] Ready to receive \n");
-        bytestream = handleHandShake(*client);
+        bytestream = handleHandShake(*client, sizeof(struct metaData));
         memcpy(&info,bytestream,sizeof(struct metaData));
-        printf("[Thread] Metadata: action: %d ,size: %zd, region: %d \n",info.action,info.msg_size,info.region);
         switch (info.action){
             case 0:
-                //client wants to send data to server
+                //client wants to send data to server (Copy)
+                printf("[Thread] Client wants to copy region %d with size %zd\n",info.region,info.msg_size);
                 data = malloc(info.msg_size);
-                data = receiveData(*client,info.msg_size);
+                data = (char*)receiveData(*client,info.msg_size);
                 strcpy(clipboard[info.region], data);
+                printf("[Thread] Copy completed: %s \n",data);
                 break;
             case 1:
-                //client is requesting data from server
-                sendData(*client,MAX_STR_SIZE,clipboard[info.region]);
+                //client is requesting data from server (Paste)
+                printf("[Thread] Client wants to paste region %d with size %zd\n",info.region,info.msg_size);
+                sendData(*client,MAX_STR_SIZE,clipboard[info.region]);      //Get rid of MAX_STR_SIZE
+                printf("Paste completed\n");
                 break;
             default:
                 //We should clean things up
@@ -94,7 +99,6 @@ void * handleClient(void * client_){
 
     }
     pthread_exit(NULL);
-
 }
 
 /* Main thread for the distributed clipboard system
