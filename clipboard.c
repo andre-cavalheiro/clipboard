@@ -5,6 +5,8 @@
 #include "clipboard.h"
 #include "socket_lib.h"
 
+#include <unistd.h>
+
 #define MAX_CLIENTS 10
 #define REGION_SIZE 10
 
@@ -21,6 +23,14 @@ char** clipboard;           //Should be struct with char * and size?
 
 
 int main(int argc, char** argv) {
+    //handle command line arguments  -- should handle errors
+    /*char * ip = malloc(16);
+    int port;
+    getopt(argc, argv, "c:");
+    ip=optarg;
+    port = atoi(argv[optind]);
+    printf("%s   %d\n",ip, port);*/
+
     //Create Sockets
     int sock = createSocket(AF_UNIX,SOCK_STREAM);
     //Bind socket
