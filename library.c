@@ -8,10 +8,13 @@
 
 // gcc -Wall -o lib.o -c library.c  && gcc -o app_test.o app_teste.c socketlib.o library.c
 
+
+
+
 /**
  *
  * @param clipboard_dir
- * @return
+ * @return  socket file descriptor on sucess / -1 on error
  */
 int clipboard_connect(char * clipboard_dir){			//Must use clipboard_dir
 	//Creating
@@ -33,22 +36,30 @@ int clipboard_connect(char * clipboard_dir){			//Must use clipboard_dir
  * @param region
  * @param buf
  * @param count
- * @return
+ * @return  numBytes sent on success / 0 on error
  */
 int clipboard_copy(int clipboard_id, int region, void *buf, size_t count){
+    //Check parameters:
+    if(checkParams(clipboard_id,region) != 0){
+        return  0;
+    }
+    //Send Data
     //printf("\t[Clipboard copy] buf = %s\n",buf);
 	char * bytestream = malloc(sizeof(struct metaData));
 	struct metaData info;
+    size_t sentBytes = 0;
 	info.region=region;
 	info.action=0;
 	info.msg_size=count;
 	memcpy(bytestream,&info,sizeof(struct metaData));
-	handShake(clipboard_id,bytestream,sizeof(struct metaData));
-	if(sendData(clipboard_id,count,buf)==-1){
-		return -1;
+	if(handShake(clipboard_id,bytestream,sizeof(struct metaData))!=0){
+        return 0;
+    }
+	if((sentBytes = sendData(clipboard_id,count,buf))==-1){
+		return 0;
 	}
 	printf("\t[Clipboard copy] Copy successful\n");
-	return 0;
+	return sentBytes;
 }
 
 /**
@@ -57,33 +68,49 @@ int clipboard_copy(int clipboard_id, int region, void *buf, size_t count){
  * @param region
  * @param buf
  * @param count
- * @return
+ * @return  numBytes copyied to buf / 0 on error / -1 on empty region
  */
 int clipboard_paste(int clipboard_id, int region, void *buf, size_t count){
+    //Check parameters:
+    if(checkParams(clipboard_id,region) != 0){
+        return  0;
+    }
 	char * bytestream = malloc(sizeof(struct metaData));
 	struct metaData info;
-    char * received;
+    void * received;
+
     //Request Data
 	info.region=region;
 	info.action=1;
 	info.msg_size=-1;
 	memcpy(bytestream,&info,sizeof(struct metaData));
-	handShake(clipboard_id,bytestream,sizeof(struct metaData));
-    //Get size of data
-    bytestream = handleHandShake(clipboard_id,sizeof(struct metaData));
-    memcpy(&info,bytestream,sizeof(struct metaData));
-    received = malloc(info.msg_size);
-    //Get data
-    if(info.msg_size > count){
-        printf("[clipboard_paste] Given buffer is not big enough\n");
+	if(handShake(clipboard_id,bytestream,sizeof(struct metaData))!= 0){
+        return 0;
     }
-	if((received = receiveData(clipboard_id,info.msg_size))==NULL){
-		return -1;
-	}
-    memcpy(buf,received,info.msg_size);     //Only way actually to change buf pointer
-    printf("\t[clipboard_paste] Paste successful\n");
-	return 0;
 
+    //Get size of data
+    if((bytestream = handleHandShake(clipboard_id,sizeof(struct metaData)))==NULL){
+        return 0;
+    }
+    memcpy(&info,bytestream,sizeof(struct metaData));
+    received = malloc(info.msg_size);                                   //Check of malloc is necessary, i dont think so
+
+    //Get data
+	if((received = receiveData(clipboard_id,info.msg_size))==NULL){
+		return 0;
+	}
+    //Handle data
+    if(info.msg_size > count ){
+        printf("[clipboard_paste] Given buffer is not big enough\n");
+        return count;                      //FIXME - devia copiar o que pode para o buffer. Talvez memcpy só com count
+    } else if(info.msg_size > 0){
+        //printf("\t[clipboard_paste] Paste successful\n");
+        memcpy(buf,received,info.msg_size);
+        return info.msg_size;
+    } else{
+        //printf("\t[clipboard_paste] Region was empty \n ");
+        return -1;   //Buf unchanged, region was empty
+    }
 }
 
 /**
@@ -104,4 +131,15 @@ int clipboard_wait(int clipboard_id, int region, void *buf, size_t count){
  */
 void clipboard_close(int clipboard_id){
 
+}
+
+/***This should be in another file*/
+int checkParams(int clipboard_id, int region){
+    if(region<0 || region >REGION_SIZE){
+        return -1;
+    }
+    if(clipboard_id < 0){       //FIXME - O que fazer mais?
+        return -1;
+    }
+    return 0;
 }

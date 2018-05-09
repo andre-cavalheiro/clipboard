@@ -127,7 +127,7 @@ int InternetClientSocket(int sockId, char *ip, int port){
  * @param type
  * @return
  */
-int handShake(int sockId, void * info, size_t size){      //type should be int, not pointer.
+int handShake(int sockId, void * info, size_t size){
     //printf("\t[Handshake] about to send %s\n",(char*)info);
     if((write(sockId, info, size ))==-1){
         perror("handshake write: ");
@@ -143,7 +143,7 @@ int handShake(int sockId, void * info, size_t size){      //type should be int, 
         printf("handshake miscommunication \n");
         return -1;
     }
-    printf("\t[Handshake] Successful \n");
+    //printf("\t[Handshake] Successful \n");
     return 0;
 }
 
@@ -156,19 +156,19 @@ int handShake(int sockId, void * info, size_t size){      //type should be int, 
  * @return
  */
 void * handleHandShake(int clientId, size_t size){
-    char * received = malloc(size);
-    if(read(clientId,received,size)==-1){
+    void * received = malloc(size);
+    if( read(clientId,received,size)==-1){
         perror("handleHandshake read: ");
-        return -1;
+        return NULL;
     }
     //printf("\t[Handle Handshake] Read Data \n");
     //Send integer 1 to confirm reception
     int confirm = 1;
     if((write(clientId,&confirm, sizeof(int)))==-1){
         perror("handleHandshake write: ");
-        return -1;
+        return NULL;
     }
-    printf("\t[Handle Handshake] Successful \n");
+    //printf("\t[Handle Handshake] Successful \n");
     return received;
 }
 
@@ -187,13 +187,13 @@ int sendData(int sockId, size_t size, void * msg){
     while(count > 0){
         if((sentBytes = send(sockId,msg,size,0))==-1){
             perror("sendData write: ");
-            return -1;
+            return (size - count);
         }
         printf("\t Wrote %zd bytes \n",sentBytes);
         count -= sentBytes;
     }
     //printf("\t[sendData] Total message sent\n");
-    return 0;
+    return size;
 }
 
 /**
@@ -214,7 +214,6 @@ void * receiveData(int sockId,size_t size){
             return NULL;
         }
         count -= readBytes;
-
     }
     //printf("\t[ReceiveData] %s \n",str);
     return str;

@@ -18,57 +18,54 @@ int main(){
 	}
 
 	size_t size = 100;
-	char * command = malloc(2);
-	char * clipboardString = malloc(size);
-	void * bytestream = malloc(sizeof(struct metaData));
+	char * command = malloc(2);                      //Action to be done in this program
+	char * clipboardString = malloc(size);              //String that will be used to sent/receive data to/from the clipboard
+	void * bytestream = malloc(sizeof(struct metaData));    //Pointer to be used in handshakes
 	struct metaData info;
 	int region = -1;
+    int verify = 0;
 
 
 	while(1) {
-		printf("Run \tc - copy\tp - paste\ta - show all\tw - wait\te - exit\n");
+		printf("\nRun \tc - copy\tp - paste\ta - show all\tw - wait\te - exit\n");
 		command = fgets(command,size, stdin);
         region = -1;
 
         //Paste
 		if(strcmp(command,"p\n") == 0){
-			printf("What region? \n");
+			printf("What region?\t");
 			scanf("%d",&region);
-            getchar();  //Ignore \n from scanf
-            if(region >= 0 && region < 10){
-				if(clipboard_paste(sock,region,clipboardString,size) == 0){
-					printf("[%d] - %s",region,(char*)clipboardString);
-				}else{
-					printf("Error pasting \n");
-				}
-			}else{
-				printf("Invalid region idiot \n");
-			}
+            getchar();          //Ignore \n from scanf
+            if((verify=clipboard_paste(sock,region,clipboardString,size)) > 0){
+                printf("[%d] - %s",region,clipboardString);
+            }else if(verify == -1){
+                printf("[%d] - (empty slot)\n",region);
+            }else{
+                printf("Error while pasting\n");
+            }
 			continue;
 		}
 		//Copy
 		else if(strcmp(command,"c\n") == 0) {
-			printf("What region? \n");
+			printf("What region? \t");
 			scanf("%d",&region);
 			getchar();  //Ignore \n from scanf
-            printf("What would you like to copy\n");
+            printf("What would you like to copy\t");
 			clipboardString=fgets(clipboardString,size,stdin);
-			if(region >= 0 && region < 10){
-				if(clipboard_copy(sock,region,clipboardString,size) != 0){
-					printf("Error copying \n");
-				}
-			}else{
-				printf("Invalid region idiot! \n");
-			}
+            if(clipboard_copy(sock,region,clipboardString,size) == 0){
+                printf("Error copying \n");
+            }
 			continue;
 		}
 		//Display all
 		else if(strcmp(command,"a\n") == 0){
             for(region=0;region<10;region++){
-                if(clipboard_paste(sock,region,clipboardString,size) == 0){
-                    printf("[%d] - %s \n",region,clipboardString);
+                if((verify=clipboard_paste(sock,region,clipboardString,size)) > 0){
+                    printf("[%d] - %s",region,clipboardString);
+                }else if(verify == -1){
+                    printf("[%d] - (empty slot)\n",region);
                 }else{
-                    printf("Error Displaying all regions \n");
+                    printf("Error while pasting\n");
                 }
             }
 			continue;
