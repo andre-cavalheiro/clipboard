@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 
 // gcc -Wall -o lib.o -c library.c  && gcc -o app_test.o app_teste.c socketlib.o library.c
@@ -17,13 +18,16 @@
  * @return  socket file descriptor on sucess / -1 on error
  */
 int clipboard_connect(char * clipboard_dir){			//Must use clipboard_dir
-	//Creating
+	char * path = malloc(strlen(clipboard_dir)+strlen(SOCK_LOCAL_ADDR));
+    snprintf(path, strlen(clipboard_dir)+strlen(SOCK_LOCAL_ADDR)+1, "%s%s", clipboard_dir, SOCK_LOCAL_ADDR);
+    //Creating
 	int sock ;
 	if((sock = createSocket(AF_UNIX,SOCK_STREAM)) == -1){
 		return -1;
 	}
 	//Connect
-	if(UnixClientSocket(sock,SOCK_LOCAL_ADDR)==-1){
+    if(UnixClientSocket(sock,SOCK_LOCAL_ADDR)==-1){ //FIXME - devia ser a linha de baixo, isto é só para o debugger funcionar
+    //if(UnixClientSocket(sock,path)==-1){
 		return -1;
 	}
 	printf("\t[Clipboard Connect] connected successfully\n");
@@ -53,12 +57,14 @@ int clipboard_copy(int clipboard_id, int region, void *buf, size_t count){
 	info.msg_size=count;
 	memcpy(bytestream,&info,sizeof(struct metaData));
 	if(handShake(clipboard_id,bytestream,sizeof(struct metaData))!=0){
+        free(bytestream);
         return 0;
     }
 	if((sentBytes = sendData(clipboard_id,count,buf))==-1){
 		return 0;
 	}
 	printf("\t[Clipboard copy] Copy successful\n");
+    free(bytestream);
 	return sentBytes;
 }
 
@@ -85,30 +91,37 @@ int clipboard_paste(int clipboard_id, int region, void *buf, size_t count){
 	info.msg_size=-1;
 	memcpy(bytestream,&info,sizeof(struct metaData));
 	if(handShake(clipboard_id,bytestream,sizeof(struct metaData))!= 0){
+        free(bytestream);
         return 0;
     }
 
     //Get size of data
     if((bytestream = handleHandShake(clipboard_id,sizeof(struct metaData)))==NULL){
+        free(bytestream);
         return 0;
     }
     memcpy(&info,bytestream,sizeof(struct metaData));
-    received = malloc(info.msg_size);                                   //Check of malloc is necessary, i dont think so
+    free(bytestream);
+    received = malloc(info.msg_size);                                   //FIXME Check if malloc is necessary, i dont think so
 
     //Get data
 	if((received = receiveData(clipboard_id,info.msg_size))==NULL){
-		return 0;
+        return 0;
 	}
     //Handle data
     if(info.msg_size > count ){
+        //FIXME - devia copiar o que pode para o buffer. Talvez memcpy só com count
         printf("[clipboard_paste] Given buffer is not big enough\n");
-        return count;                      //FIXME - devia copiar o que pode para o buffer. Talvez memcpy só com count
+        free(received);
+        return count;
     } else if(info.msg_size > 0){
         //printf("\t[clipboard_paste] Paste successful\n");
         memcpy(buf,received,info.msg_size);
+        free(received);
         return info.msg_size;
     } else{
         //printf("\t[clipboard_paste] Region was empty \n ");
+        free(received);
         return -1;   //Buf unchanged, region was empty
     }
 }
@@ -130,7 +143,15 @@ int clipboard_wait(int clipboard_id, int region, void *buf, size_t count){
  * @param clipboard_id
  */
 void clipboard_close(int clipboard_id){
-
+    struct metaData info;
+    char * bytestream = malloc(sizeof(struct metaData));
+    info.action = 2;
+    info.msg_size = 0;
+    info.region = -1;
+    memcpy(&info,bytestream,sizeof(struct metaData));
+    handShake(clipboard_id,bytestream,sizeof(struct metaData));
+    close(clipboard_id);
+    free(bytestream);
 }
 
 /***This should be in another file*/

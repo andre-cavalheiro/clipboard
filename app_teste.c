@@ -75,7 +75,8 @@ int main(){
             continue;
         }
         else if(strcmp(command,"e\n") == 0){
-            //Clipboard_close...
+            //Close connection
+            clipboard_close(sock);
             break;
         }
     }

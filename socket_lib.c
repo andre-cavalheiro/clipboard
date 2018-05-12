@@ -33,6 +33,7 @@ int UnixServerSocket(int sockId, char * path, int maxQueueLength){
     struct sockaddr_un local_addr ;
     local_addr.sun_family = AF_UNIX;
     strcpy(local_addr.sun_path, path);
+    printf("--> %s\n",local_addr.sun_path);
     if(bind(sockId,(struct sockaddr *)&local_addr, sizeof(struct sockaddr)) == -1) {
         //Try to unlink before throwing error
         unlink(path);
@@ -87,7 +88,7 @@ int UnixClientSocket(int sockId , char * path){
     struct sockaddr_un local_addr ;
     local_addr.sun_family = AF_UNIX;
     strcpy(local_addr.sun_path, path);
-    printf("[UnixClientSocket] About to connect %d\n",sockId);
+    printf("[UnixClientSocket] About to connect fd %d to %s \n",sockId,path);
     if(connect(sockId, (const struct sockaddr *) &local_addr, sizeof(struct sockaddr_un))==-1){
         perror("connect: ");
         return -1;
@@ -166,6 +167,7 @@ void * handleHandShake(int clientId, size_t size){
     int confirm = 1;
     if((write(clientId,&confirm, sizeof(int)))==-1){
         perror("handleHandshake write: ");
+        free(received);
         return NULL;
     }
     //printf("\t[Handle Handshake] Successful \n");
@@ -211,6 +213,7 @@ void * receiveData(int sockId,size_t size){
     while(count > 0){
         if((readBytes = recv(sockId,str+readBytes,size,0)) == -1){
             perror("sendData write: ");
+            free(str);
             return NULL;
         }
         count -= readBytes;

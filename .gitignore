@@ -5,3 +5,4 @@ socket_420
 sock*
 CMakeLists.txt
 cmake-build-debug/*
+CLIPBOARD_SOCKET

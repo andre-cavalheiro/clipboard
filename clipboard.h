@@ -1,8 +1,7 @@
 #include <sys/types.h>
 #include "socket_lib.h"
 
-#define SOCK_LOCAL_ADDR "/tmp/socket_42"  //Criar name com pid()? Se sim então têm de ser em /tmp e temos de garantir unlink
-#define MAX_STR_SIZE 200
+#define SOCK_LOCAL_ADDR "/tmp/CLIPBOARD"       //FIXME -> devia ser sem o tmp e CLIPBOARD_SOCKET, é só para o debugger funcionar.
 #define REGION_SIZE 10
 
 
