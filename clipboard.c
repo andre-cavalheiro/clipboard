@@ -11,6 +11,8 @@
 gcc -Wall -o socketlib.o -c socket_lib.c && gcc -Wall -pthread -o clipboard.o clipboard.c socketlib.o && mv clipboard.o cmake-build-debug/ && ./cmake-build-debug/clipboard.o
  */
 
+//Should we create another process/thread for error handling?
+
 //Functions
 void * handleClient(void * );
 void shutDownThread(void * ,void *);
@@ -43,7 +45,7 @@ int main(int argc, char** argv) {
     // Local clients setup
     pthread_t clipboard_comm;
     pthread_t localHandler;
-    int client;
+    int * client = malloc(sizeof(int));
 
 
     //Clipboard setup
@@ -67,11 +69,11 @@ int main(int argc, char** argv) {
 
     while(1){
         printf("Ready to accept \n");
-        if((client = accept(sock, NULL, NULL)) == -1) {
+        if((*client = accept(sock, NULL, NULL)) == -1) {
             perror("accept");
             exit(-1);
         }
-        if(pthread_create(&localHandler, NULL, handleClient, &client) != 0){
+        if(pthread_create(&localHandler, NULL, handleClient, client) != 0){
             printf("Creating thread");
             exit(-1);
         }
@@ -87,14 +89,15 @@ int main(int argc, char** argv) {
  * @return
  */
 void * handleClient(void * client_){
-    int * client = client_;
+    int * client__ = client_;
+    int client = *client__;
     void * bytestream_cpy = NULL;
     void * bytestream_pst = malloc(sizeof(struct metaData));
     struct metaData info;
 
     while(1){
         printf("[Thread] Ready to receive \n");
-        bytestream_cpy = handleHandShake(*client, sizeof(struct metaData));
+        bytestream_cpy = handleHandShake(client, sizeof(struct metaData));
         memcpy(&info,bytestream_cpy,sizeof(struct metaData));
         switch (info.action){
             case 0:
@@ -105,7 +108,7 @@ void * handleClient(void * client_){
                 }
                 clipboard[info.region].size = info.msg_size;
                 clipboard[info.region].payload = malloc(info.msg_size);
-                clipboard[info.region].payload = receiveData(*client,info.msg_size);
+                clipboard[info.region].payload = receiveData(client,info.msg_size);
                 printf("[Thread] Copy completed: %s \n",(char*)clipboard[info.region].payload);
                 break;
             case 1:
@@ -114,9 +117,9 @@ void * handleClient(void * client_){
                 info.msg_size = clipboard[info.region].size;
                 //Informar cliente do tamanho da mensagem
                 memcpy(bytestream_pst,&info,sizeof(struct metaData));
-                handShake(*client,bytestream_pst,sizeof(struct metaData));
+                handShake(client,bytestream_pst,sizeof(struct metaData));
                 //Enviar mensagem
-                sendData(*client,clipboard[info.region].size,clipboard[info.region].payload);
+                sendData(client,clipboard[info.region].size,clipboard[info.region].payload);
                 printf("Paste completed\n");
                 break;
             case 2:
