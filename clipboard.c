@@ -88,9 +88,9 @@ int main(int argc, char** argv) {
  * @param client_
  * @return
  */
-void * handleClient(void * client_){
-    int * client__ = client_;
-    int client = *client__;
+void * handleClient(void * client__){
+    int * client_ = client__;
+    int client = *client_;
     void * bytestream_cpy = NULL;
     void * bytestream_pst = malloc(sizeof(struct metaData));
     struct metaData info;
