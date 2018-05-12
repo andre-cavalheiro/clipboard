@@ -16,7 +16,7 @@ struct metaData{
 struct node {
     void * payload;
     size_t size;
-    //will also have the time of the data reception
+    time_t time;
 };
 
 

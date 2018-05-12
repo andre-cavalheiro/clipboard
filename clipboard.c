@@ -23,35 +23,12 @@ struct node clipboard[REGION_SIZE];
 
 
 int main(int argc, char** argv) {
-    //handle command line arguments  -- should handle errors
-    int connected_mode;
-    int opt = getopt(argc, argv, "c:");
-    if(opt == 'c'){
-        connected_mode = 1;         // Variavel que indica se é suposto comunicar com outros clipboards ou se é só para correr localmente (tá no enunciado que é suposto dar das 2 maneiras)
-        char * ip = malloc(16);
-        ip = optarg;
-        int port = atoi(argv[optind]);
-        printf("%s   %d\n",ip, port);
-    }else{
-        connected_mode = 0;
-    }
 
-
-    //Create Local Socket
-    int sock = createSocket(AF_UNIX,SOCK_STREAM);
-    //Bind Local socket
-    UnixServerSocket(sock,SOCK_LOCAL_ADDR,5);
-
-    // Local clients setup
-    pthread_t clipboard_comm;
-    pthread_t localHandler;
-    int * client = malloc(sizeof(int));
-
-
-    //Clipboard setup
+	//Clipboard setup
     for(int i;i<REGION_SIZE;i++){
         clipboard[i].payload = NULL;
         clipboard[i].size = 0; //Cannot be negative because size_t
+        clipboard[i].time = time(NULL);
     }
 
     //Signal handlers
@@ -59,13 +36,48 @@ int main(int argc, char** argv) {
     shutdown.sa_handler = shutDownClipboard;
     sigaction(SIGINT,&shutdown,NULL);
 
-    /*PLACEHOLDER FOR DISTRIUTED CLIPBOARD COMMUNICATION
-    ->receive from function arguments if its solo(empty) or connected(ip addr)???*/
-    /*if(pthread_create(clipboard_com, NULL, clipboardHub, argv[]) != 0){
-        printf("Creating thread");
-        exit(-1);
+    //handle command line arguments  -- should handle errors
+    int parent;
+    int opt = getopt(argc, argv, "c:");
+   	pthread_t clipboard_hub;
+    if(opt == 'c'){
+        char * ip = malloc(16);
+        ip = optarg;
+        int port = atoi(argv[optind]);
+        printf("%s   %d\n",ip, port);
+
+        //create socket for parent clipboard comms
+        int parent_sock = createSocket(AF_INET,SOCK_STREAM);
+        InternetClientSocket(parent_sock, ip, port);
+
+	    //creates clipboard hub to receive/transmit data between clipboards
+	    if(pthread_create(&clipboard_hub, NULL, ClipHub, &parent_sock) != 0){
+	    	printf("Creating thread\n", );
+	    	exit(-1);
+	    }
+        //new thread to handle this connection
+    	pthread_t parent_connection;
+    	if(pthread_create(&parent_connection, NULL, ClipConnetion, &parent_sock) != 0){
+    	printf("Creating thread\n", );
+    	exit(-1);
+    	}
     }
-    */
+    else{
+	    //creates clipboard hub to receive/transmit data between clipboards
+	    if(pthread_create(&clipboard_hub, NULL, ClipHub, NULL) != 0){
+	    	printf("Creating thread\n", );
+	    	exit(-1);
+	    }
+	}
+
+    //Create Local Socket
+    int sock = createSocket(AF_UNIX,SOCK_STREAM);
+    //Bind Local socket
+    UnixServerSocket(sock,SOCK_LOCAL_ADDR,5);
+
+    // Local clients setup
+    pthread_t localHandler;
+    int * client = malloc(sizeof(int));
 
     while(1){
         printf("Ready to accept \n");
@@ -82,8 +94,7 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-
-/**
+/** LOCAL CLIENTS WILL ALWAYS HAVE THE MOST RECENT DATA THEREFORE IT IT UNECESSARY TO CHECK TIME
  *
  * @param client_
  * @return
@@ -103,23 +114,31 @@ void * handleClient(void * client__){
             case 0:
                 //client wants to send data to server (Copy)
                 printf("[Thread] Client wants to copy region %d with size %zd\n",info.region,info.msg_size);
+
+                //********CRITICAL REGION*************
                 if(clipboard[info.region].size != 0){
                     free(clipboard[info.region].payload);
                 }
                 clipboard[info.region].size = info.msg_size;
                 clipboard[info.region].payload = malloc(info.msg_size);
                 clipboard[info.region].payload = receiveData(client,info.msg_size);
+                //**********CRITICAL REGION***************
+
                 printf("[Thread] Copy completed: %s \n",(char*)clipboard[info.region].payload);
                 break;
             case 1:
                 //client is requesting data from server (Paste)
                 printf("[Thread] Client wants to paste region %d\n",info.region);
+
+                //***************CRITICAL REGION**************** - SAVE TO AUX STRING TO SHRINK REGION
                 info.msg_size = clipboard[info.region].size;
                 //Informar cliente do tamanho da mensagem
                 memcpy(bytestream_pst,&info,sizeof(struct metaData));
                 handShake(client,bytestream_pst,sizeof(struct metaData));
                 //Enviar mensagem
                 sendData(client,clipboard[info.region].size,clipboard[info.region].payload);
+                //************+CRITICAL REGION**************
+
                 printf("Paste completed\n");
                 break;
             case 2:
@@ -142,25 +161,199 @@ void * handleClient(void * client__){
     }
 }
 
-/* Main thread for the distributed clipboard system
-all threads must be able to access the clipboard directly (global??)
-void* clipboardHub(void* ip_addr){
+
+/**
+ *
+ *
+ *
+ */
+void * ClipHub (void * parent_){
+
+	int * parent_ = parent;
+	if (parent != NULL){
+		//new thread to handle parent connection
+		int parent_id = *parent;
+    	pthread_t parent_connection;
+    	paste_all(parent_id);
+    	if(pthread_create(&parent_connection, NULL, ClipHandle, parent) != 0){
+    	printf("Creating thread\n", );
+    	exit(-1);
+    	}
+	}
+	//Create Socket
+    int sock = createSocket(AF_INET,SOCK_STREAM);
+    //Bind Local socket
+    InternetServerSocket(sock, INADDR_LOOPBACK,5);
 
 
-    //CONNECTED MODE
-    if ip_addr != NULL{ ??
+    // ClipHub setup
+    pthread_t clipboard_comm;
+    int * clip = malloc(sizeof(int));
 
-        socket to master for connection request
-
-    }
-
-    // await connection from other clipboards
     while(1){
+        printf("Ready to accept \n");
+        if((*clip = accept(sock, NULL, NULL)) == -1) {
+            perror("accept");
+            exit(-1);
+        }
+        if(pthread_create(&clipboard_comm, NULL, ClipHandle, clip) != 0){
+            perror("Creating thread");
+            exit(-1);
+        }
+    }
+    return 0;    
+}
 
-        same as for local communication
+
+/**	OUTSIDERS MAY NOT HAVE THE MOST RECENT DATA THEREFORE IT IS NECESSARY TO CROSS CHECK THE VALIDITY OF THE DATA WE RECEIVE
+ *
+ * clip -> socket id
+ *
+ */
+void * ClipHandle (void * _clip){
+
+	//This thread will handle local check(and update the outside), while another one checks for updates from the outside (and update local)
+    int * clip_ = _clip;
+    int clip = *clip_;
+    pthread_t secondary_comm;
+
+    void * bytestream_cpy = NULL;
+    void * bytestream_pst = malloc(sizeof(struct metaData));
+    struct metaData info;
+
+    //send eveything to new clipboard
+
+    for(i = 0; i < REGION_SIZE; i++){
+	    bytestream_cpy = handleHandShake(client, sizeof(struct metaData));
+	    memcpy(&info,bytestream_cpy,sizeof(struct metaData));
+        //***************CRITICAL REGION**************** - SAVE TO AUX STRING TO SHRINK REGION
+        info.msg_size = clipboard[info.region].size;
+        //Informar cliente do tamanho da mensagem
+        memcpy(bytestream_pst,&info,sizeof(struct metaData));
+        handShake(client,bytestream_pst,sizeof(struct metaData));
+        //Enviar mensagem
+        sendData(client,clipboard[info.region].size,clipboard[info.region].payload);
+        //************+CRITICAL REGION**************	    
+	}
+
+    //create secondary thread
+    if(pthread_create(&secondary_comm, NULL, ClipOuterHandle, clip) != 0){
+        perror("Creating thread");
+        exit(-1);
+    }
+	//***************CRITICAL REGION**************** - SAVE TO AUX STRING TO SHRINK REGION
+    info.msg_size = clipboard[info.region].size;
+    //Informar cliente do tamanho da mensagem
+    memcpy(bytestream_pst,&info,sizeof(struct metaData));
+    handShake(clip,bytestream_pst,sizeof(struct metaData));
+    //Enviar mensagem
+    sendData(clip,clipboard[info.region].size,clipboard[info.region].payload);
+    //*************CRITICAL REGION****************
+
+}
+
+/**
+ *
+ * clip -> socket id
+ *
+ */
+void * ClipOuterHandle (void * _clip){
+
+	//This thread will handle local check(and update the outside), while another one checks for updates from the outside (and update local)
+    int * clip_ = _clip;
+    int clip = *clip_;
+
+	void * bytestream_cpy = NULL;
+    void * bytestream_pst = malloc(sizeof(struct metaData));
+    struct metaData info;
+
+    while(1){
+        printf("[Thread] Ready to receive \n");
+        bytestream_cpy = handleHandShake(clip, sizeof(struct metaData));
+        memcpy(&info,bytestream_cpy,sizeof(struct metaData));
+        switch (info.action){
+            case 0:
+                //client wants to send data to server (Copy)
+                printf("[Thread] Client wants to copy region %d with size %zd\n",info.region,info.msg_size);
+
+                //**************CRITICAL REGION*****************
+                if(clipboard[info.region].size != 0){
+                    free(clipboard[info.region].payload);
+                }
+                clipboard[info.region].size = info.msg_size;
+                clipboard[info.region].payload = malloc(info.msg_size);
+                clipboard[info.region].payload = receiveData(clip,info.msg_size);
+                //****************CRITICAL REGION****************
+
+                break;
+            case 1:
+                //client is requesting data from server (Paste)
+            	//It's not supposed to do so!
+                break;
+            case 2:
+                //client is logging out
+                shutDownThread(bytestream_cpy,bytestream_pst);
+                pthread_exit(NULL);
+                break;
+            default:
+                //Error:
+                //FIXME handle this case in client side.
+                shutDownThread(bytestream_cpy,bytestream_pst);
+                pthread_exit(NULL);
+                break;
+        }
     }
 }
-*/
+
+
+int paste_all(int parent_id){
+	char * bytestream = malloc(sizeof(struct metaData));
+	struct metaData info;
+    void * received;
+
+    //Request Data
+    for( i = 0; i < REGION_SIZE ; i++){
+		info.region=i;
+		info.action=1;
+		info.msg_size=-1;
+		memcpy(bytestream,&info,sizeof(struct metaData));
+		if(handShake(clipboard_id,bytestream,sizeof(struct metaData)) != 0){
+	        free(bytestream);
+	        return 0;
+	    }
+
+	    //Get size of data
+	    if((bytestream = handleHandShake(clipboard_id,sizeof(struct metaData))) == NULL){
+	        free(bytestream);
+	        return 0;
+	    }
+	    memcpy(&info,bytestream,sizeof(struct metaData));
+	    free(bytestream);
+	    received = malloc(info.msg_size);                                   //FIXME Check if malloc is necessary, i dont think so
+
+	    //Get data
+		if((received = receiveData(clipboard_id,info.msg_size)) == NULL){
+	        return 0;
+		}
+	    //Handle data
+	    if(info.msg_size > count ){
+	        //FIXME - devia copiar o que pode para o buffer. Talvez memcpy só com count
+	        printf("[clipboard_paste] Given buffer is not big enough\n");
+	        free(received);
+	        return count;
+	    } else if(info.msg_size > 0){
+	        //printf("\t[clipboard_paste] Paste successful\n");
+	        memcpy(clipboard[i].payload,received,info.msg_size);
+	        free(received);
+	        clipboard[i].size = info.msg_size;
+	        clipboard[i].time = info.time;
+	    } else{
+	        //printf("\t[clipboard_paste] Region was empty \n ");
+	        free(received);
+			clipboard[i].size = 0; //Buf unchanged, region was empty
+	    }
+	}
+}
 
 /**
  *
