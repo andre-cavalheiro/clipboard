@@ -17,6 +17,10 @@ gcc -Wall -o socketlib.o -c socket_lib.c && gcc -Wall -pthread -o clipboard.o cl
 void * handleClient(void * );
 void shutDownThread(void * ,void *);
 void shutDownClipboard(int );
+void * ClipHub (void * parent_);
+void * ClipHandle (void * _clip);
+void * ClipOuterHandle (void * _clip);
+int paste_all(int parent_id);
 
 //Global Variables
 struct node clipboard[REGION_SIZE];
@@ -37,7 +41,6 @@ int main(int argc, char** argv) {
     sigaction(SIGINT,&shutdown,NULL);
 
     //handle command line arguments  -- should handle errors
-    int parent;
     int opt = getopt(argc, argv, "c:");
    	pthread_t clipboard_hub;
     if(opt == 'c'){
@@ -52,20 +55,20 @@ int main(int argc, char** argv) {
 
 	    //creates clipboard hub to receive/transmit data between clipboards
 	    if(pthread_create(&clipboard_hub, NULL, ClipHub, &parent_sock) != 0){
-	    	printf("Creating thread\n", );
+	    	perror("Creating thread\n");
 	    	exit(-1);
 	    }
         //new thread to handle this connection
     	pthread_t parent_connection;
-    	if(pthread_create(&parent_connection, NULL, ClipConnetion, &parent_sock) != 0){
-    	printf("Creating thread\n", );
+    	if(pthread_create(&parent_connection, NULL, ClipHandle, &parent_sock) != 0){
+    	perror("Creating thread\n");
     	exit(-1);
     	}
     }
     else{
 	    //creates clipboard hub to receive/transmit data between clipboards
 	    if(pthread_create(&clipboard_hub, NULL, ClipHub, NULL) != 0){
-	    	printf("Creating thread\n", );
+	    	perror("Creating thread\n");
 	    	exit(-1);
 	    }
 	}
@@ -85,7 +88,7 @@ int main(int argc, char** argv) {
             perror("accept");
             exit(-1);
         }
-        if(pthread_create(&localHandler, NULL, handleClient, client) != 0){
+        if(pthread_create(&localHandler, NULL, ClipHandle, client) != 0){
             printf("Creating thread");
             exit(-1);
         }
@@ -94,7 +97,7 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-/** LOCAL CLIENTS WILL ALWAYS HAVE THE MOST RECENT DATA THEREFORE IT IT UNECESSARY TO CHECK TIME
+/** LOCAL CLIENTS WILL ALWAYS HAVE THE MOST RECENT DATA THEREFORE IT IT UNECESSARY TO CHECK TIME BUT WE HAVE TO SEND IT
  *
  * @param client_
  * @return
@@ -169,14 +172,14 @@ void * handleClient(void * client__){
  */
 void * ClipHub (void * parent_){
 
-	int * parent_ = parent;
+	int * parent = parent_;
 	if (parent != NULL){
 		//new thread to handle parent connection
 		int parent_id = *parent;
     	pthread_t parent_connection;
     	paste_all(parent_id);
     	if(pthread_create(&parent_connection, NULL, ClipHandle, parent) != 0){
-    	printf("Creating thread\n", );
+    	perror("Creating thread\n");
     	exit(-1);
     	}
 	}
@@ -222,22 +225,22 @@ void * ClipHandle (void * _clip){
     struct metaData info;
 
     //send eveything to new clipboard
-
+    int i;
     for(i = 0; i < REGION_SIZE; i++){
-	    bytestream_cpy = handleHandShake(client, sizeof(struct metaData));
+	    bytestream_cpy = handleHandShake(clip, sizeof(struct metaData));
 	    memcpy(&info,bytestream_cpy,sizeof(struct metaData));
         //***************CRITICAL REGION**************** - SAVE TO AUX STRING TO SHRINK REGION
         info.msg_size = clipboard[info.region].size;
         //Informar cliente do tamanho da mensagem
         memcpy(bytestream_pst,&info,sizeof(struct metaData));
-        handShake(client,bytestream_pst,sizeof(struct metaData));
+        handShake(clip,bytestream_pst,sizeof(struct metaData));
         //Enviar mensagem
-        sendData(client,clipboard[info.region].size,clipboard[info.region].payload);
-        //************+CRITICAL REGION**************	    
+        sendData(clip,clipboard[info.region].size,clipboard[info.region].payload);
+        //************CRITICAL REGION**************	    
 	}
 
     //create secondary thread
-    if(pthread_create(&secondary_comm, NULL, ClipOuterHandle, clip) != 0){
+    if(pthread_create(&secondary_comm, NULL, ClipOuterHandle, &clip) != 0){
         perror("Creating thread");
         exit(-1);
     }
@@ -249,7 +252,7 @@ void * ClipHandle (void * _clip){
     //Enviar mensagem
     sendData(clip,clipboard[info.region].size,clipboard[info.region].payload);
     //*************CRITICAL REGION****************
-
+    return(0);
 }
 
 /**
@@ -310,6 +313,7 @@ int paste_all(int parent_id){
 	char * bytestream = malloc(sizeof(struct metaData));
 	struct metaData info;
     void * received;
+    int i,count = 0;
 
     //Request Data
     for( i = 0; i < REGION_SIZE ; i++){
@@ -317,30 +321,30 @@ int paste_all(int parent_id){
 		info.action=1;
 		info.msg_size=-1;
 		memcpy(bytestream,&info,sizeof(struct metaData));
-		if(handShake(clipboard_id,bytestream,sizeof(struct metaData)) != 0){
+		if(handShake(parent_id,bytestream,sizeof(struct metaData)) != 0){
 	        free(bytestream);
-	        return 0;
+	        exit(0);
 	    }
 
 	    //Get size of data
-	    if((bytestream = handleHandShake(clipboard_id,sizeof(struct metaData))) == NULL){
+	    if((bytestream = handleHandShake(parent_id,sizeof(struct metaData))) == NULL){
 	        free(bytestream);
-	        return 0;
+	        exit(0);
 	    }
 	    memcpy(&info,bytestream,sizeof(struct metaData));
 	    free(bytestream);
 	    received = malloc(info.msg_size);                                   //FIXME Check if malloc is necessary, i dont think so
 
 	    //Get data
-		if((received = receiveData(clipboard_id,info.msg_size)) == NULL){
-	        return 0;
+		if((received = receiveData(parent_id,info.msg_size)) == NULL){
+	        exit(0);
 		}
-	    //Handle data
+	    //Handle data CRITICAL REGION
 	    if(info.msg_size > count ){
 	        //FIXME - devia copiar o que pode para o buffer. Talvez memcpy só com count
 	        printf("[clipboard_paste] Given buffer is not big enough\n");
 	        free(received);
-	        return count;
+	        exit(count);
 	    } else if(info.msg_size > 0){
 	        //printf("\t[clipboard_paste] Paste successful\n");
 	        memcpy(clipboard[i].payload,received,info.msg_size);
@@ -353,6 +357,7 @@ int paste_all(int parent_id){
 			clipboard[i].size = 0; //Buf unchanged, region was empty
 	    }
 	}
+    return(0);
 }
 
 /**

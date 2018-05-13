@@ -10,6 +10,7 @@ struct metaData{
     int action;         //0->client wants to send data to server. 1->client is requesting data from server
     int region;
     size_t msg_size;
+    time_t time;
 };
 
 //Actual Data struct
