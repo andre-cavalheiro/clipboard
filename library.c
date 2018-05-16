@@ -135,7 +135,53 @@ int clipboard_paste(int clipboard_id, int region, void *buf, size_t count){
  * @return
  */
 int clipboard_wait(int clipboard_id, int region, void *buf, size_t count){
+    //From the client's point of view exactly the same as paste but with increased waiting time depending upon the update time
+    if(checkParams(clipboard_id,region) != 0){
+        return  0;
+    }
+    char * bytestream = malloc(sizeof(struct metaData));
+    struct metaData info;
+    void * received;
 
+    //Request Data
+    info.region=region;
+    info.action=3;
+    info.msg_size=-1;
+    memcpy(bytestream,&info,sizeof(struct metaData));
+    if(handShake(clipboard_id,bytestream,sizeof(struct metaData))!= 0){
+        free(bytestream);
+        return 0;
+    }
+
+    //Get size of data
+    if((bytestream = handleHandShake(clipboard_id,sizeof(struct metaData)))==NULL){
+        free(bytestream);
+        return 0;
+    }
+    memcpy(&info,bytestream,sizeof(struct metaData));
+    free(bytestream);
+    received = malloc(info.msg_size);                                   //FIXME Check if malloc is necessary, i dont think so
+
+    //Get data
+    if((received = receiveData(clipboard_id,info.msg_size))==NULL){
+        return 0;
+    }
+    //Handle data
+    if(info.msg_size > count ){
+        //FIXME - devia copiar o que pode para o buffer. Talvez memcpy só com count
+        printf("[clipboard_paste] Given buffer is not big enough\n");
+        free(received);
+        return count;
+    } else if(info.msg_size > 0){
+        //printf("\t[clipboard_paste] Paste successful\n");
+        memcpy(buf,received,info.msg_size);
+        free(received);
+        return info.msg_size;
+    } else{
+        //printf("\t[clipboard_paste] Region was empty \n ");
+        free(received);
+        return -1;   //Buf unchanged, region was empty
+    }
 }
 
 /**
