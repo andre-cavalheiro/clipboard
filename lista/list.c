@@ -149,3 +149,39 @@ void libertaLista(t_lista *lp, void freeItem(void *)) {
 
   return;
 }
+
+
+/******************************************************************************
+ * libertaLista ()
+ *
+ * Arguments: prev - pointer to previous node
+ *            cur - current node
+ * Returns:  (void)
+ * Side-Effects: frees 
+ *
+ * Description: free current node
+ *
+ *****************************************************************************/
+
+t_lista *free_node(t_lista **prev, t_list *cur){
+  t_lista *aux;
+
+  //1st node dead
+  if(prev == NULL){
+    *prev = cur;
+    cur = getProxElementoLista(cur);
+    freeItem(getItemLista(*prev));
+    free(*prev);
+    *prev = NULL;
+  }
+
+  else{
+    aux = cur;
+    cur = getProxElementoLista(cur);
+    *prev->prox = cur;
+    freeItem(getItemLista(aux));
+    free(aux);
+  }
+
+  return cur;
+}
