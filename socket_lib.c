@@ -38,7 +38,7 @@ int UnixServerSocket(int sockId, char * path, int maxQueueLength){
         //Try to unlink before throwing error
         unlink(path);
         if(bind(sockId,(struct sockaddr *)&local_addr, sizeof(struct sockaddr)) == -1) {
-            perror("bind");
+            perror("bind Unix: ");
             return -1;
         }
     }
@@ -60,13 +60,14 @@ int UnixServerSocket(int sockId, char * path, int maxQueueLength){
  * @return
  */
 int InternetServerSocket(int sockId, int port,int maxQueueLength){
+    printf("Porto: %d \n",port);
     //Bind
     struct sockaddr_in local_addr;
     local_addr.sin_family = AF_INET;
     local_addr.sin_port = htons(port);
     local_addr.sin_addr.s_addr= INADDR_ANY;
     if(bind(sockId,(struct sockaddr *)&local_addr,sizeof(struct sockaddr))==-1){
-        perror("bind: ");
+        perror("bind internet: ");
         return -1;
     }
     //Listen
