@@ -163,7 +163,7 @@ void libertaLista(t_lista *lp, void freeItem(void *)) {
  *
  *****************************************************************************/
 
-t_lista *free_node(t_lista **prev, t_list *cur){
+t_lista *free_node(t_lista **prev, t_lista *cur){
   t_lista *aux;
 
   //1st node dead

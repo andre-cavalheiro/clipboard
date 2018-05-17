@@ -25,6 +25,7 @@ void * ClipHandleParent (void * _clip);
 int ClipSync(int parent_id);
 char * generateHash(int size, int randFactor,int randFactor2);
 void * regionWatch(void * region_);
+void freePayload(void * payload);
 
 //Global Variables
 struct data clipboard[REGION_SIZE];
@@ -47,7 +48,7 @@ int main(int argc, char** argv) {
         clipboard[i].payload = NULL;
         clipboard[i].size = 0; //Cannot be negative because size_t
         clipboard[i].hash = malloc(HASH_SIZE*sizeof(char));
-        clipboard[i].hash = "";
+        clipboard[i].hash = "/0";
 
         //CHEESY CRITICAL REGION FOR localHandler
         pthread_mutex_lock(&setup_mutex);
@@ -75,14 +76,15 @@ int main(int argc, char** argv) {
         if(err != 0){
             printf("Error creating node\n");
         }
+        //Receives clipboard from parent
+        ClipSync(parent_sock_write);
 
-
-        //creates clipboard hub to receive/transmit data between clipboards
-        if(pthread_create(&clipboard_hub, NULL, ClipHub, &parent_sock_write) != 0){
+        //creates clipboard hub to receive/transmit data child clipboards
+        if(pthread_create(&clipboard_hub, NULL, ClipHub,NULL) != 0){
             perror("Creating thread\n");
             exit(-1);
         }
-        //new thread to handle this connection
+        //Create Thread that handles comunication with the parent
         pthread_t parent_connection;
         if(pthread_create(&parent_connection, NULL, ClipHandleParent, &parent_sock_read) != 0){
             perror("Creating thread\n");
@@ -142,6 +144,7 @@ void * handleClient(void * client__){
     void * data_bytestream = NULL;
     void * bytestream_cpy = NULL;
     void * bytestream_pst = malloc(sizeof(struct metaData));
+    char * hash;
     struct metaData info;
 
     while(1){
@@ -151,7 +154,7 @@ void * handleClient(void * client__){
         switch (info.action){
             case 0:
                 //client wants to send data to server (Copy)
-           		data_bytestream = receiveData(clip,info.msg_size);
+           		data_bytestream = receiveData(client,info.msg_size);
 		        hash = generateHash(HASH_SIZE,getpid(),pthread_self());
 
                 printf("[Local] Client wants to copy region %d with size %zd\n",info.region,info.msg_size);
@@ -202,7 +205,7 @@ void * handleClient(void * client__){
             /*case 3:
             	//client is requesting wait
             	printf("[Local] Client wants to wait for a new addition to region %d\n",info.region);
-            	//***************CRITICAL REGION****************
+            	/***************CRITICAL REGION****************
  				pthread_mutex_lock(&mutex[info.region]);
 
  				while(!new_data[info.region]){
@@ -219,7 +222,7 @@ void * handleClient(void * client__){
                 sendData(client,info.msg_size,clipboard[info.region].payload);
 		        pthread_rwlock_unlock(&rwlocks[info.region]);
 		        pthread_mutex_unlock(&mutex[info.region]);
-		        //***************CRITICAL REGION****************
+		        /***************CRITICAL REGION****************
 		        break;
  				}*/
             default:
@@ -242,19 +245,8 @@ void * handleClient(void * client__){
  * @param parent_
  * @return
  */
-void * ClipHub (void * parent_){
-    int * parent = parent_;
-    if (parent != NULL){
-        printf("[Cliphub] I have a father \n");
-        //new thread to handle parent connection
-        int parent_id = *parent;
-        pthread_t parent_connection;
-        ClipSync(parent_id);
-        if(pthread_create(&parent_connection, NULL, ClipHandleParent, parent) != 0){
-            perror("Creating thread\n");
-            exit(-1);
-        }
-    }
+void * ClipHub (void * useless){
+
     //Create Socket
     int sock = createSocket(AF_INET,SOCK_STREAM);
     //Bind Local socket
@@ -387,7 +379,7 @@ void * ClipHandleParent (void * _clip){
         pthread_rwlock_rdlock(&rwlocks[info.region]);
         if(strcmp(clipboard[info.region].hash,info.hash)==0){
             printf("[Handle Parent] I already have this\n");
-            info.action = 3;
+            info.action = 4;
             memcpy(bytestream_pst,&info,sizeof(struct metaData));
             handShake(clip,bytestream_pst,sizeof(struct metaData));
             continue;
@@ -461,9 +453,9 @@ void * regionWatch(void * region_){
     //***** CRITICAL REGION *******
 
     if(parent){ 
-        list_size = numItensNaLista(aux) -1;
+        list_size = numItensNaLista(head) -1;
     }else{
-        list_size = numItensNaLista(aux);
+        list_size = numItensNaLista(head);
     }
 
     //** SHITTY *********** CRITICAL REGION ****************
@@ -475,12 +467,12 @@ void * regionWatch(void * region_){
         client = getItemLista(aux);
         if(handShake(*client,bytestream,sizeof(struct metaData)) == -1){
         	//this socket is dead, removing the corpse(node)...
-        	aux = free_node(&prev, aux);
+        	aux = free_node(&prev, aux,freePayload);
         	continue;
         }
         bytestream = handleHandShake(*client,sizeof(struct metaData));
         memcpy(&info,bytestream,sizeof(struct metaData));
-        if(info.action != 3){
+        if(info.action != 4){
             sendData(*client,info.msg_size,payload);
         }
         prev = aux;
@@ -501,10 +493,9 @@ int ClipSync(int parent_id){
     char * bytestream = malloc(sizeof(struct metaData));
     struct metaData info;
     void * received;
-    int i = 0;
     printf("[ClipSync] Initiating process\n");
     //Request Data
-    for( i = 0; i < REGION_SIZE ; i++){
+    for(int i = 0; i < REGION_SIZE ; i++){
         info.region=i;
         info.action=1;
         info.msg_size=-1;
@@ -526,7 +517,7 @@ int ClipSync(int parent_id){
             printf("Error receiving \n");
             exit(0);
         }
-        printf("[ClipSync] Received - %s \n", (char*)received);
+        printf("[ClipSync] Received [%d] - %s \n",info.region ,(char*)received);
 
    		//***** CRITICAL REGION *******
         pthread_rwlock_wrlock(&rwlocks[info.region]);
@@ -537,8 +528,11 @@ int ClipSync(int parent_id){
         //***** CRITICAL REGION *******
     }
     printf("[ClipSync] ======= Clipboard in sync ===========\n");
+
     for(int i=0;i<REGION_SIZE;i++){
+        pthread_rwlock_rdlock(&rwlocks[i]);
         printf("[%d] - %s\n",i,(char*)clipboard[i].payload);
+        pthread_rwlock_unlock(&rwlocks[i]);
     }
     printf("================================\n");
     return(0);
@@ -636,4 +630,12 @@ char* generateHash(int size, int randFactor,int randFactor2){  //pid, pthread, n
     }
 
     return hash;
+}
+
+/**
+ *
+ * @param payload
+ */
+void freePayload(void * payload){
+    free(payload);
 }

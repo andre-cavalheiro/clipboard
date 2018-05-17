@@ -8,7 +8,7 @@
 
 //handshake struct
 struct metaData{
-    int action;         //0->client wants to send data to server. 1->client is requesting data from server. 2->Local client is logging out 3-> Remote end connection
+    int action;         //0->client wants to send data to server. 1->client is requesting data from server. 2->Local client is logging out. 3-> wait 4-> Remote end connection
     int region;
     char * hash;
     size_t msg_size;
