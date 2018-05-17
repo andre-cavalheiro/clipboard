@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
         clipboard[i].payload = NULL;
         clipboard[i].size = 0; //Cannot be negative because size_t
         clipboard[i].hash = malloc(HASH_SIZE*sizeof(char));
-        clipboard[i].hash = "/0";
+        clipboard[i].hash[0] = "\0";
 
         //CHEESY CRITICAL REGION FOR localHandler
         pthread_mutex_lock(&setup_mutex);
