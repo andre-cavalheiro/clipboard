@@ -47,7 +47,6 @@ int main(int argc, char** argv) {
     for(int i=0;i<REGION_SIZE;i++){
         clipboard[i].payload = NULL;
         clipboard[i].size = 0; //Cannot be negative because size_t
-        clipboard[i].hash = malloc(HASH_SIZE*sizeof(char));
         clipboard[i].hash[0] = "\0";
 
         //CHEESY CRITICAL REGION FOR localHandler
@@ -284,7 +283,7 @@ void * ClipHub (void * useless){
         }
 
     }
-    return 0;
+    pthread_exit(NULL);
 }
 
 
@@ -311,6 +310,7 @@ void * ClipHandleChild (void * _clip){
         //***************CRITICAL REGION****************
         pthread_rwlock_rdlock(&rwlocks[info.region]);
         info.msg_size = clipboard[info.region].size;
+        memcpy(info.hash,clipboard[info.region].hash,HASH_SIZE);
         payload = clipboard[info.region].payload;
         pthread_rwlock_unlock(&rwlocks[info.region]);
         //***************CRITICAL REGION****************
@@ -353,7 +353,7 @@ void * ClipHandleChild (void * _clip){
 
         printf("[Handle Child] Clipboard updated \n");
     }
-    return(0);
+    pthread_exit(NULL);
 }
 
 /**
@@ -409,7 +409,7 @@ void * ClipHandleParent (void * _clip){
 
         //*************CRITICAL REGION****************
     }
-    return(0);
+    pthread_exit(NULL);
 }
 
 
@@ -430,7 +430,7 @@ void * regionWatch(void * region_){
     void * bytestream = malloc(sizeof(struct metaData));
     bool parent = 0;
 
-
+    /*
     //************** CRITICAL REGION ***************
     pthread_mutex_lock(&mutex[region]);
     while(!new_data[region]){
@@ -440,7 +440,7 @@ void * regionWatch(void * region_){
 
     pthread_rwlock_rdlock(&rwlocks[region]);
 
-    info.hash = clipboard[region].hash;
+    memcpy(info.hash,clipboard[info.region].hash,HASH_SIZE);
     info.msg_size = clipboard[region].size;
     payload = clipboard[region].payload;
     memcpy(bytestream,&info,sizeof(struct metaData));
@@ -480,7 +480,8 @@ void * regionWatch(void * region_){
     }
     //*********** CRITICAL REGION ****************
     pthread_mutex_unlock(&list_mutex);
-    return 0;
+     */
+    pthread_exit(NULL);
 }
 
 
@@ -498,7 +499,7 @@ int ClipSync(int parent_id){
     for(int i = 0; i < REGION_SIZE ; i++){
         info.region=i;
         info.action=1;
-        info.msg_size=-1;
+        info.msg_size=0;
         memcpy(bytestream,&info,sizeof(struct metaData));
 
         if(handShake(parent_id,bytestream,sizeof(struct metaData)) != 0){
@@ -522,7 +523,7 @@ int ClipSync(int parent_id){
    		//***** CRITICAL REGION *******
         pthread_rwlock_wrlock(&rwlocks[info.region]);
         clipboard[info.region].size = info.msg_size;
-        clipboard[info.region].hash = info.hash;
+        memcpy(info.hash,clipboard[info.region].hash,HASH_SIZE);
         clipboard[info.region].payload = received;
         pthread_rwlock_unlock(&rwlocks[info.region]);
         //***** CRITICAL REGION *******
