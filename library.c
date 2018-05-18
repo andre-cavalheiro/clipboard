@@ -18,15 +18,16 @@
  * @return  socket file descriptor on sucess / -1 on error
  */
 int clipboard_connect(char * clipboard_dir){			//Must use clipboard_dir
-	char * path = malloc(strlen(clipboard_dir)+strlen(SOCK_LOCAL_ADDR));
-    snprintf(path, strlen(clipboard_dir)+strlen(SOCK_LOCAL_ADDR)+1, "%s%s", clipboard_dir, SOCK_LOCAL_ADDR);
+	//char * path = malloc(strlen(clipboard_dir)+strlen(SOCK_LOCAL_ADDR));
+    //snprintf(path, strlen(clipboard_dir)+strlen(SOCK_LOCAL_ADDR)+1, "%s%s", clipboard_dir, SOCK_LOCAL_ADDR);
     //Creating
 	int sock ;
 	if((sock = createSocket(AF_UNIX,SOCK_STREAM)) == -1){
 		return -1;
 	}
 	//Connect
-    if(UnixClientSocket(sock,SOCK_LOCAL_ADDR)==-1){ //FIXME - devia ser a linha de baixo, isto é só para o debugger funcionar
+    if(UnixClientSocket(sock,clipboard_dir)==-1){       //FIXME - devia ser o de duas linhas a baixo, e descomentafr as 2 primeiras linhas
+    //if(UnixClientSocket(sock,SOCK_LOCAL_ADDR)==-1){ //FIXME - devia ser a linha de baixo, isto é só para o debugger funcionar
     //if(UnixClientSocket(sock,path)==-1){
 		return -1;
 	}

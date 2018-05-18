@@ -47,11 +47,7 @@ int main(int argc, char** argv) {
     for(int i=0;i<REGION_SIZE;i++){
         clipboard[i].payload = NULL;
         clipboard[i].size = 0; //Cannot be negative because size_t
-        clipboard[i].hash[0] = "\0";
-
-        //CHEESY CRITICAL REGION FOR localHandler
-        pthread_mutex_lock(&setup_mutex);
-        pthread_create(&localHandler,NULL,regionWatch,&i);
+        clipboard[i].hash[0] = '\0';
     }
 
     //handle command line arguments  -- should handle errors
@@ -97,11 +93,25 @@ int main(int argc, char** argv) {
             exit(-1);
         }
     }
+    int region[REGION_SIZE];        //FIXME later
+    for(int i=0;i<REGION_SIZE;i++){
+        region[i]=i;
+        //CHEESY CRITICAL REGION FOR localHandler
+        pthread_mutex_lock(&setup_mutex);
+        pthread_create(&localHandler,NULL,regionWatch,&region[i]);
+    }
 
     //Create Local Socket
     int sock = createSocket(AF_UNIX,SOCK_STREAM);
     //Bind Local socket
-    UnixServerSocket(sock,SOCK_LOCAL_ADDR,5);
+    char * delete_me = malloc(100);
+    char * pid = malloc(20);    //temporary to allow multiple clipboard in same dir
+    snprintf (pid, 40, "%d",getpid());
+    strcpy(delete_me, SOCK_LOCAL_ADDR);
+    strcat(delete_me,pid);
+    printf("[main] %s\n",delete_me);
+    UnixServerSocket(sock,delete_me,5);
+
 
     // Local clients setup
     int * client = malloc(sizeof(int));
@@ -172,10 +182,14 @@ void * handleClient(void * client__){
                 pthread_rwlock_unlock(&rwlocks[info.region]);
 
                 new_data[info.region] = true;
+                pthread_cond_signal(&cond[info.region]);
 		        pthread_mutex_unlock(&mutex[info.region]);
 		       //***************CRITICAL REGION****************
 
-                printf("[Local] Copy completed: %s \n",(char*)clipboard[info.region].payload);
+                printf("[Local] Final clipboard state: \n");
+                for(int i=0; i<REGION_SIZE; i++){
+                    printf("\t[%d]: %s \t %s\n",i,clipboard[i].hash,(char*)clipboard[i].payload);
+                }
                 break;
             case 1:
                 //client is requesting data from server (Paste)
@@ -207,7 +221,7 @@ void * handleClient(void * client__){
             	/***************CRITICAL REGION****************
  				pthread_mutex_lock(&mutex[info.region]);
 
- 				while(!new_data[info.region]){
+ 				while(!new_data[info.region]){  //FIXME
  					pthread_cond_wait(&cond[info.region],&mutex[info.region]);
  				}
 
@@ -231,11 +245,6 @@ void * handleClient(void * client__){
                 pthread_exit(NULL);
                 break;
         }
-        printf("[Local] Final clipboard state: \n");
-        for(int i=0; i<REGION_SIZE; i++){
-            printf("\t[%d]: %s \n",i,(char*)clipboard[i].payload);
-        }
-
     }
 }
 
@@ -245,13 +254,14 @@ void * handleClient(void * client__){
  * @return
  */
 void * ClipHub (void * useless){
-
+    srand(getpid());
+    int port = rand()%63714 + 1024; //generate random port between 1024 and 64738
     //Create Socket
     int sock = createSocket(AF_INET,SOCK_STREAM);
     //Bind Local socket
-    InternetServerSocket(sock, 3000 ,5);  //FIXME INADDR_LOOPBACK
+    InternetServerSocket(sock, port ,5);  //FIXME INADDR_LOOPBACK
 
-    printf("[Cliphub] Created socket \n");
+    printf("[Cliphub] Created socket in port %d \n", port);
     // ClipHub setup
     pthread_t clipboard_comm;
     int * clip_read = malloc(sizeof(int));
@@ -275,7 +285,7 @@ void * ClipHub (void * useless){
             perror("[Cliphub] accept");
             exit(-1);
         }
-        printf("[Cliphub] Creating list \n");
+        printf("[Cliphub] Adding child to list \n");
         head=criaNovoNoLista(head,clip_write,&err);
         if(err !=0){
             //FIXME handle error
@@ -296,7 +306,6 @@ void * ClipHandleChild (void * _clip){
 
     int * clip_ = _clip;
     int clip = *clip_;
-    char * hash ;
     void * bytestream_cpy = NULL;
     void * bytestream_pst = NULL;
     void * payload = NULL;
@@ -310,7 +319,7 @@ void * ClipHandleChild (void * _clip){
         //***************CRITICAL REGION****************
         pthread_rwlock_rdlock(&rwlocks[info.region]);
         info.msg_size = clipboard[info.region].size;
-        memcpy(info.hash,clipboard[info.region].hash,HASH_SIZE);
+        strncpy(info.hash,clipboard[info.region].hash,HASH_SIZE);
         payload = clipboard[info.region].payload;
         pthread_rwlock_unlock(&rwlocks[info.region]);
         //***************CRITICAL REGION****************
@@ -332,20 +341,21 @@ void * ClipHandleChild (void * _clip){
         handShake(clip,bytestream_pst,sizeof(struct metaData));
         printf("[Handle Child] About to Receive new data \n");
         bytestream_cpy = receiveData(clip,info.msg_size);
-        hash = generateHash(HASH_SIZE,getpid(),pthread_self());
 
         //***************CRITICAL REGION**************** - SAVE TO AUX STRING TO SHRINK REGION
         pthread_mutex_lock(&mutex[info.region]);
         pthread_rwlock_wrlock(&rwlocks[info.region]);
-
+        printf("[Handle Parent] Beggining substitution\n ");
         if(clipboard[info.region].size != 0){
             free(clipboard[info.region].payload);
         }
         clipboard[info.region].size = info.msg_size;
         clipboard[info.region].payload = bytestream_cpy;
-        memcpy(clipboard[info.region].hash,hash,HASH_SIZE);
+        strncpy(clipboard[info.region].hash,info.hash,HASH_SIZE);
 
         new_data[info.region]=true;
+        pthread_cond_signal(&cond[info.region]);
+
 
         pthread_rwlock_unlock(&rwlocks[info.region]);
         pthread_mutex_unlock(&mutex[info.region]);
@@ -354,7 +364,7 @@ void * ClipHandleChild (void * _clip){
         printf("[Handle Child] Clipboard updated \n");
     }
     pthread_exit(NULL);
-}
+}   //FIXME WITH STUFF FROM HANDLEPARENT
 
 /**
  *
@@ -365,49 +375,66 @@ void * ClipHandleParent (void * _clip){
 
     int * clip_ = _clip;
     int clip = *clip_;
-    char * hash ;
-    void * bytestream_cpy = NULL;
+    void * bytestream_cpy = malloc(sizeof(struct metaData));
     void * bytestream_pst = NULL;
+    void * data;
     struct metaData info;
 
 
     while(1){
-        bytestream_pst = handleHandShake(clip,sizeof(struct metaData));
+        if((bytestream_pst = handleHandShake(clip,sizeof(struct metaData)))== NULL){
+            printf("[Handle Parent] handle handshake failed \n");
+            exit(0);
+        }
         printf("[Handle Parent] My father contacted me \n");
         memcpy(&info,bytestream_pst,sizeof(struct metaData));
 
         pthread_rwlock_rdlock(&rwlocks[info.region]);
         if(strcmp(clipboard[info.region].hash,info.hash)==0){
-            printf("[Handle Parent] I already have this\n");
+            printf("[Handle Parent] I already have this [%d] mine:%s \t new:%s \n",info.region,clipboard[info.region].hash,info.hash);
             info.action = 4;
-            memcpy(bytestream_pst,&info,sizeof(struct metaData));
-            handShake(clip,bytestream_pst,sizeof(struct metaData));
+            memcpy(bytestream_cpy,&info,sizeof(struct metaData));
+            handShake(clip,bytestream_cpy,sizeof(struct metaData));
             continue;
+        }
+        info.action = 1;
+        memcpy(bytestream_cpy,&info,sizeof(struct metaData));
+        if(handShake(clip,bytestream_cpy,sizeof(struct metaData)) != 0){
+            printf("[Handle Parent] handshake failed \n");
+            exit(0);
         }
         printf("[Handle Parent] New data incoming\n");
         pthread_rwlock_unlock(&rwlocks[info.region]);
-        bytestream_cpy = receiveData(clip,info.msg_size);
-        hash = generateHash(HASH_SIZE,getpid(),pthread_self());
+        if((data = receiveData(clip,info.msg_size))==NULL){
+            printf("[Handle Parent] The entire data WAS NOT received \n");
+        }
 
         //***************CRITICAL REGION**************** - SAVE TO AUX STRING TO SHRINK REGION
         pthread_mutex_lock(&mutex[info.region]);
         pthread_rwlock_wrlock(&rwlocks[info.region]);
-
+        printf("[Handle Parent] Beginning substitution\n ");
         if(clipboard[info.region].size != 0){
             free(clipboard[info.region].payload);
         }
         clipboard[info.region].size = info.msg_size;
-        clipboard[info.region].payload = bytestream_cpy;
-        memcpy(clipboard[info.region].hash,hash,HASH_SIZE);
+        memcpy(clipboard[info.region].payload,data,info.msg_size);
+        strncpy(clipboard[info.region].hash,info.hash,HASH_SIZE);
 
         new_data[info.region]=true;
         from_parent[info.region]=true;
+        pthread_cond_signal(&cond[info.region]);
+
 
         pthread_rwlock_unlock(&rwlocks[info.region]);
         pthread_mutex_unlock(&mutex[info.region]);
         printf("[Handle Parent] Clipboard updated\n");
 
         //*************CRITICAL REGION****************
+        free(data);
+        for(int i=0; i<REGION_SIZE; i++){
+            printf("\t[%d]: %s \t %s\n",i,clipboard[i].hash,(char*)clipboard[i].payload);
+        }
+
     }
     pthread_exit(NULL);
 }
@@ -423,64 +450,86 @@ void * regionWatch(void * region_){
     int * region__ = region_;
     int region = *region__;
     pthread_mutex_unlock(&setup_mutex);
+
     struct metaData info;
     int list_size=0;
     int * client = NULL;
     void * payload = NULL;
     void * bytestream = malloc(sizeof(struct metaData));
     bool parent = 0;
+    printf("[Region watch] Watching for %d \n",region);
 
-    /*
-    //************** CRITICAL REGION ***************
-    pthread_mutex_lock(&mutex[region]);
-    while(!new_data[region]){
-        pthread_cond_wait(&cond[region],&mutex[region]);
-    }
+    info.region = region;
 
+    while(1){
+        //************** CRITICAL REGION ***************
+        pthread_mutex_lock(&mutex[region]);
+        //while(!new_data[region]){
+            pthread_cond_wait(&cond[region],&mutex[region]);
+        //}
+        printf("[Region watch - %d] Out of Conditional wait \n",region);
+        info.action = 0;
+        pthread_rwlock_rdlock(&rwlocks[region]);
 
-    pthread_rwlock_rdlock(&rwlocks[region]);
+        strncpy(info.hash,clipboard[info.region].hash,HASH_SIZE);
+        info.msg_size = clipboard[region].size;
+        payload = clipboard[region].payload;
+        memcpy(bytestream,&info,sizeof(struct metaData));
 
-    memcpy(info.hash,clipboard[info.region].hash,HASH_SIZE);
-    info.msg_size = clipboard[region].size;
-    payload = clipboard[region].payload;
-    memcpy(bytestream,&info,sizeof(struct metaData));
+        pthread_rwlock_unlock(&rwlocks[region]);
+        printf("[Region watch] Got info from clipboard \n");
+        new_data[region] = false;
+        parent = from_parent[region];   //check if info came from parent
+        from_parent[region] = 0;
+        pthread_mutex_unlock(&mutex[region]);
+        printf("[Region watch] Cleaned things up \n");
+        //************** CRITICAL REGION **********************
 
-    pthread_rwlock_unlock(&rwlocks[region]);
-    new_data[region] = 0;
-    parent = from_parent[region];
-    from_parent[region] = 0;
-    pthread_mutex_unlock(&mutex[region]);
-    //***** CRITICAL REGION *******
-
-    if(parent){ 
-        list_size = numItensNaLista(head) -1;
-    }else{
-        list_size = numItensNaLista(head);
-    }
-
-    //** SHITTY *********** CRITICAL REGION ****************
-    pthread_mutex_lock(&list_mutex);
-
-    t_lista * aux = head;
-    t_lista * prev = NULL;
-    for(int i=0;i<list_size;i++){
-        client = getItemLista(aux);
-        if(handShake(*client,bytestream,sizeof(struct metaData)) == -1){
-        	//this socket is dead, removing the corpse(node)...
-        	aux = free_node(&prev, aux,freePayload);
-        	continue;
+        if(parent){
+            printf("[Region watch] Message came from parent \n");
+            list_size = numItensNaLista(head) -1;
+        }else{
+            printf("[Region watch] Message came from son/local \n");
+            list_size = numItensNaLista(head);
         }
-        bytestream = handleHandShake(*client,sizeof(struct metaData));
-        memcpy(&info,bytestream,sizeof(struct metaData));
-        if(info.action != 4){
-            sendData(*client,info.msg_size,payload);
+
+        //******** SHITTY LIST * CRITICAL REGION ****************
+        pthread_mutex_lock(&list_mutex);
+        t_lista * aux = head;
+        t_lista * prev = NULL;
+        printf("[Region watch] Starting to spread the message. List has size %d \n",list_size);
+        if(list_size != 0){
+            for(int i=0;i<list_size;i++){
+                printf("[Region watch] list position %d \n",i);
+                client = getItemLista(aux);
+                if(handShake(*client,bytestream,sizeof(struct metaData)) == -1){
+                    //this socket is dead, removing the corpse(node)...
+                    printf("[Region watch] dead node\n");
+                    aux = free_node(&prev, aux,freePayload);
+                    continue;
+                }
+                printf("[Region watch] Handshake went good \n");
+                if((bytestream = handleHandShake(*client,sizeof(struct metaData)))==NULL){
+                    printf("handleHandShake failed! \n");
+                    exit(0);
+                }
+                printf("[Region watch] Handle handshake went good \n ");
+                memcpy(&info,bytestream,sizeof(struct metaData));
+                if(info.action != 4){
+                    printf("[Region watch] Sending data \n ");
+                    if((sendData(*client,info.msg_size,payload)) != info.msg_size){
+                        printf("[Region watch] The entire message WASN'T send\n");
+                    }
+                }
+                prev = aux;
+                aux = getProxElementoLista(aux);
+            }
+            printf("[Region watch] out of loop\n");
         }
-        prev = aux;
-        aux = getProxElementoLista(aux);
+        //*********** CRITICAL REGION ****************
+        printf("[Region watch] Done \n");
+        pthread_mutex_unlock(&list_mutex);
     }
-    //*********** CRITICAL REGION ****************
-    pthread_mutex_unlock(&list_mutex);
-     */
     pthread_exit(NULL);
 }
 
@@ -518,24 +567,18 @@ int ClipSync(int parent_id){
             printf("Error receiving \n");
             exit(0);
         }
-        printf("[ClipSync] Received [%d] - %s \n",info.region ,(char*)received);
+        printf("[ClipSync] Received [%d] - %s \t %s \n",info.region,info.hash ,(char*)received);
 
    		//***** CRITICAL REGION *******
         pthread_rwlock_wrlock(&rwlocks[info.region]);
         clipboard[info.region].size = info.msg_size;
-        memcpy(info.hash,clipboard[info.region].hash,HASH_SIZE);
+        strncpy(info.hash,clipboard[info.region].hash,HASH_SIZE);
         clipboard[info.region].payload = received;
         pthread_rwlock_unlock(&rwlocks[info.region]);
         //***** CRITICAL REGION *******
     }
-    printf("[ClipSync] ======= Clipboard in sync ===========\n");
+    printf("[ClipSync] Done \n");
 
-    for(int i=0;i<REGION_SIZE;i++){
-        pthread_rwlock_rdlock(&rwlocks[i]);
-        printf("[%d] - %s\n",i,(char*)clipboard[i].payload);
-        pthread_rwlock_unlock(&rwlocks[i]);
-    }
-    printf("================================\n");
     return(0);
 }
 
@@ -552,7 +595,7 @@ void shutDownClipboard(int sig){
         }
 
     }
-    unlink(SOCK_LOCAL_ADDR);
+    //unlink(SOCK_LOCAL_ADDR);
 }
 
 
@@ -623,13 +666,13 @@ char* generateHash(int size, int randFactor,int randFactor2){  //pid, pthread, n
     int randomColumn = rand()%4;
 
 
-    for(int i=0; i< size; i++){
+    for(int i=0; i< size-1; i++){
         hash[i] = hashTable[randomLine][randomColumn];
 
         randomLine = rand()%15;
         randomColumn = rand()%4;
     }
-
+    hash[size-1]='\0';
     return hash;
 }
 

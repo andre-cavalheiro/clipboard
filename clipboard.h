@@ -1,7 +1,7 @@
 #include <sys/types.h>
 #include "socket_lib.h"
 
-#define SOCK_LOCAL_ADDR "CLIPBOARD"       //FIXME -> devia ser sem o tmp e CLIPBOARD_SOCKET, é só para o debugger funcionar.
+#define SOCK_LOCAL_ADDR "/tmp/CLIP"       //FIXME -> devia ser sem o tmp e CLIPBOARD_SOCKET, é só para o debugger funcionar.
 #define REGION_SIZE 10
 #define HASH_SIZE  10
 

@@ -33,7 +33,7 @@ int UnixServerSocket(int sockId, char * path, int maxQueueLength){
     struct sockaddr_un local_addr ;
     local_addr.sun_family = AF_UNIX;
     strcpy(local_addr.sun_path, path);
-    printf("--> %s\n",local_addr.sun_path);
+    //printf("[UnixServerSocket] %s\n",local_addr.sun_path);
     if(bind(sockId,(struct sockaddr *)&local_addr, sizeof(struct sockaddr)) == -1) {
         //Try to unlink before throwing error
         unlink(path);
@@ -60,7 +60,7 @@ int UnixServerSocket(int sockId, char * path, int maxQueueLength){
  * @return
  */
 int InternetServerSocket(int sockId, int port,int maxQueueLength){
-    printf("Porto: %d \n",port);
+    //printf("Porto: %d \n",port);
     //Bind
     struct sockaddr_in local_addr;
     local_addr.sin_family = AF_INET;

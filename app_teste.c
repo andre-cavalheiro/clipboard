@@ -10,9 +10,15 @@ gcc -Wall -o lib.o -c library.c  && gcc -o app_test.o app_teste.c socketlib.o li
 
  */
 
-int main(){
+int main(int argc, char ** argv){
+    char * socket = malloc(100 + strlen(argv[1]));
+    char * dir = malloc(5);
+    dir = "/tmp/";
+    strcpy(socket,dir );
+    strcat(socket,argv[1]);
+    printf("%s\n",socket);
 
-	int sock = clipboard_connect("./");
+	int sock = clipboard_connect(socket);
 	if(sock == -1){
 		exit(-1);
 	}
