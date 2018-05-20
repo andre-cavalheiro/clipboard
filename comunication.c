@@ -1,4 +1,5 @@
-#include "comunication.h"
+#include "header.h"
+
 
 /**
  *
@@ -10,13 +11,18 @@ void * getLocalClipboardData(int region){
     void * payload = NULL;
 
     pthread_rwlock_rdlock(&rwlocks[region]);
-    payload = malloc(clipboard[region].size);
-    memcpy(payload,clipboard[region].payload,clipboard[region].size);
+    payload = malloc(clipboard[region].size+10);
+    memcpy(payload,clipboard[region].payload,clipboard[region].size+5);
     pthread_rwlock_unlock(&rwlocks[region]);
 
     return payload;
 }
 
+/**
+ *
+ * @param region
+ * @return
+ */
 struct metaData getLocalClipboardInfo(int region){
     struct metaData info;
     info.region = region;
@@ -49,23 +55,27 @@ void setLocalRegion(int region, void * payload,size_t size,char*hash){
 }
 
 /**
- * NULL means not updated, not error
  *
  * @param parent_id
  * @param info
  * @return
  */
-void * getRemoteData(int sock,struct metaData *info,bool compare){
+void * getRemoteData(int sock,struct metaData *info,bool compare,int* error,int* logout){
     void * bytestream;
     void * received;
+    struct metaData localInfo;
 
     if((bytestream = handleHandShake(sock,sizeof(struct metaData))) == NULL){
         free(bytestream);
+        *error = 1;
         return NULL;
     }
     memcpy(info,bytestream,sizeof(struct metaData));
-
-    struct metaData localInfo = getLocalClipboardInfo(info->region);
+    if(info->action == 4){
+        *logout = 1;
+        return NULL;
+    }
+    localInfo = getLocalClipboardInfo(info->region);
 
     //Compare hashes if it's supposed to
     if(compare && (strcmp(localInfo.hash, info->hash) == 0)) {
@@ -73,7 +83,8 @@ void * getRemoteData(int sock,struct metaData *info,bool compare){
             memcpy(bytestream, info, sizeof(struct metaData));
             if (handShake(sock, bytestream, sizeof(struct metaData)) != 0) {
                 free(bytestream);
-                return NULL;    //error
+                *error = 1;
+                return NULL;
             }
             return NULL;    //Not error
     }
@@ -82,12 +93,14 @@ void * getRemoteData(int sock,struct metaData *info,bool compare){
     memcpy(bytestream,info,sizeof(struct metaData));
     if(handShake(sock,bytestream,sizeof(struct metaData)) != 0){
         free(bytestream);
+        *error = 1;
         return NULL;    //error
     }
 
 
     //Get data
     if((received = receiveData(sock,info->msg_size)) == NULL){
+        *error = 1;
         return NULL;
     }
     free(bytestream);
@@ -135,6 +148,121 @@ int sendDataToRemote(int client,struct metaData info, void* payload){
     return 0;
 }
 
+
+
+/**
+ *  Function to end the clipboard
+ *  It releases the used resources and informs other clipboards.
+ *  This function is used as a handler for the SIGINT signal
+ *
+ * @param sock
+ */
+void shutDownClipboard(int sig) {
+    int list_size;
+    int * client;
+    t_lista * aux = head;
+    struct metaData info;
+    void * bytestream = malloc(sizeof(struct metaData));
+
+    info.action = 4;
+    memcpy(bytestream,&info, sizeof(struct metaData));
+
+    //Free clipboard
+
+    for (int i = 0; i < REGION_SIZE; i++) {
+        //Lock region just in case
+        pthread_mutex_lock(&mutex[i]);
+        pthread_rwlock_wrlock(&rwlocks[i]);
+        //Free clipboard
+        if (clipboard[i].payload != NULL) {
+            free(clipboard[i].payload);
+        }
+
+    }
+
+    //Unlink local socket
+    //FIXME - all this stuuf is just to generate the CLIP... socket name which wont be in the final version
+    char *delete_me = malloc(100);
+    char *pid = malloc(20);
+    snprintf(pid, 40, "%d", getpid());
+    strcpy(delete_me, SOCK_LOCAL_ADDR);
+    strcat(delete_me, pid);
+    unlink(delete_me);
+
+    //Inform other clipboards of my death and free memory
+    pthread_mutex_lock(&list_mutex);
+    list_size = numItensNaLista(head);
+    for (int i = 0; i < list_size; i++) {
+        client = getItemLista(aux);
+        handShake(*client,bytestream,sizeof(struct metaData));
+        aux = getProxElementoLista(aux);
+    }
+    libertaLista(head,freePayload);
+
+    //FIXME unlink internet socket
+}
+
+/**
+ *  Generate a random hash which identifies each piece of data
+ *
+ * @param size
+ * @param randFactor
+ * @param randFactor2
+ * @return
+ */
+char* generateHash(int size, int randFactor,int randFactor2){  //pid, pthread, numo nanoseconds since ...
+    //62 elementos, tirei o w,W para fazer 60.
+    char charset[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX";
+    char hashTable[15][4];
+    char * hash = malloc(size);
+    struct timeval tv;
+    int msec, randomLine,randomColumn;
+
+    //Generate table
+    srand(randFactor+randFactor2);
+    for(int i = 0;i<15;i++){
+        for(int j=0;j<4;j++){
+            hashTable[i][j]=charset[rand()%60];
+        }
+    }
+
+    //Generate random Hash
+    if (gettimeofday(&tv, NULL) == 0) {
+        msec = ((tv.tv_sec % 86400) * 1000 + tv.tv_usec / 1000);    //Get milliseconds since midnight
+    }else{
+        printf("Error\n");
+    }
+    srand(msec);
+    randomLine = rand()%15;
+    randomColumn = rand()%4;
+
+    for(int i=0; i< size-1; i++){
+        hash[i] = hashTable[randomLine][randomColumn];
+
+        randomLine = rand()%15;
+        randomColumn = rand()%4;
+    }
+    hash[size-1]='\0';
+    return hash;
+}
+
+
+/**
+ * Free list payload which is an int pointer to a socket file descriptor
+ * @param payload
+ */
+void freePayload(void * payload){
+    free(payload);
+}
+
+/**
+ * Print current clipboard
+ */
+void printClipboard(){
+    for(int i=0; i<REGION_SIZE; i++){
+        printf("   [%d]-[%s] \t %s [%zd bytes]\n",i,clipboard[i].hash,(char*)clipboard[i].payload,clipboard[i].size);
+    }
+}
 
 
 

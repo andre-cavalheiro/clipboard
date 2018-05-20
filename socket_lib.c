@@ -192,7 +192,7 @@ int sendData(int sockId, size_t size, void * msg){
             perror("sendData write: ");
             return (size - count);
         }
-        printf("\t Wrote %zd bytes \n",sentBytes);
+        //printf("\t Wrote %zd bytes \n",sentBytes);
         count -= sentBytes;
     }
     //printf("\t[sendData] Total message sent\n");

@@ -1,21 +1,26 @@
 #include "clipboard.h"
 
+//Data structures
 
-//handshake struct
-struct metaData{
-    int action;         //0->client wants to send data to server. 1->client is requesting data from server. 2->Local client is logging out. 3-> wait 4-> Remote end connection
-    int region;
-    char hash[HASH_SIZE];
-    size_t msg_size;
-};
-
-//Actual Data struct
+//Clipboard region
 struct data{
     void * payload;
     char hash[HASH_SIZE];
     size_t size;
 };
 
+//Argument type for Remote clipboard handlers
+struct argument{
+    int id;
+    int sock;
+    bool isParent;
+};
+
+//Nodes of list
+struct node{
+    int sock;
+    int id;
+};
 
 
 
@@ -32,24 +37,26 @@ pthread_cond_t cond[REGION_SIZE];
 
 
 
+//Remote and local Comunication functions
 void * getLocalClipboardData(int region);
 struct metaData getLocalClipboardInfo(int region);
 void setLocalRegion(int region, void * payload,size_t size,char*hash);
-void * getRemoteData(int sock,struct metaData *info,bool compare);
+void * getRemoteData(int sock,struct metaData *info,bool compare,int* err,int* logout);
 int sendDataToRemote(int client,struct metaData info, void* payload);
 
 
-
-//Clipboard Functions
-/***********OLD*/
-void * handleClient(void * );
-void shutDownThread(void * ,void *);
+//Clipboard functionality Functions
+void * handleLocalClient(void * );
+void * handleClipboard(void * arg);
 void shutDownClipboard(int );
-void * ClipHub (void * parent_);
+void * ClipHub (void * );
 void * ClipHandleChild (void * _clip);
 void * ClipHandleParent (void * _clip);
 int ClipSync(int parent_id);
 char * generateHash(int size, int randFactor,int randFactor2);
 void * regionWatch(void * region_);
 void freePayload(void * payload);
-/********/
+
+
+void printClipboard();
+void printList();

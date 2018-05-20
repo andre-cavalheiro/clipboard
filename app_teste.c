@@ -1,51 +1,52 @@
-#include "clipboard.h"
-#include <sys/types.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include "header.h"
 
 
-/*
-gcc -Wall -o lib.o -c library.c  && gcc -o app_test.o app_teste.c socketlib.o library.c && mv app_test.o cmake-build-debug/ && ./cmake-build-debug/app_test.o
-
- */
 
 int main(int argc, char ** argv){
+    if(argc < 2){
+        printf("Missing socket name\n");
+        exit(1);
+    }
     char * socket = malloc(100 + strlen(argv[1]));
     char * dir = malloc(5);
+    char * command = malloc(2);    //Action to be done in this program
+    char * clipboardString = NULL;  //String that will be used to sent/receive data to/from the clipboard
+    void * bytestream = malloc(sizeof(struct metaData));    //Pointer to be used in handshakes
+    int region = -1, verify = 0;
+    size_t maxsize = 4095;  //stin buffer max size
+    //Helper variables to receive dynamic input
+    FILE* stringFile = NULL;
+    char ch,enable;
+    size_t size = 0;
+
+
+    //FIXME Create socket name (i dont think we'll keep this in the final version, but let's keep it until the very last)
     dir = "/tmp/";
     strcpy(socket,dir );
     strcat(socket,argv[1]);
     printf("%s\n",socket);
 
+    //Connect
 	int sock = clipboard_connect(socket);
 	if(sock == -1){
 		exit(-1);
 	}
 
-	size_t size = 100;
-	char * command = malloc(2);                      //Action to be done in this program
-	char * clipboardString = malloc(size);              //String that will be used to sent/receive data to/from the clipboard
-	void * bytestream = malloc(sizeof(struct metaData));    //Pointer to be used in handshakes
-	struct metaData info;
-	int region = -1;
-    int verify = 0;
-
-
+    //Receive input and make requests to clipboard
 	while(1) {
 		printf("\nRun \tc - copy\tp - paste\ta - show all\tw - wait\te - exit\n");
-		command = fgets(command,size, stdin);
+		//Receive command
+        command = fgets(command,3,stdin);
         region = -1;
 
         //Paste
 		if(strcmp(command,"p\n") == 0){
 			printf("What region?\t");
 			scanf("%d",&region);
-            getchar();          //Ignore \n from scanf
-            if((verify=clipboard_paste(sock,region,clipboardString,size)) > 0){
-                printf("[%d] - %s",region,clipboardString);
-            }else if(verify == -1){
-                printf("[%d] - (empty slot)\n",region);
+            getchar();
+            clipboardString = malloc(maxsize);
+            if((verify=clipboard_paste(sock,region,clipboardString,maxsize)) > 0){
+                printf("[%d](%d) - %s \n",region,verify,clipboardString);
             }else{
                 printf("Error while pasting\n");
             }
@@ -55,10 +56,28 @@ int main(int argc, char ** argv){
 		else if(strcmp(command,"c\n") == 0) {
 			printf("What region? \t");
 			scanf("%d",&region);
-			getchar();  //Ignore \n from scanf
+			getchar();
             printf("What would you like to copy\t");
-			clipboardString=fgets(clipboardString,size,stdin);
-            if(clipboard_copy(sock,region,clipboardString,size) == 0){
+
+            //Get endless string from stdin (max is 4095 bytes)
+            stdin = freopen(NULL,"r",stdin);
+            fgets(&enable,0,stdin);
+            stringFile=fopen("/tmp/stringFile","w+");
+            while(1){
+                ch = fgetc(stdin);
+                if( ch =='\n')
+                    break ;
+                size++;
+                fputc(ch,stringFile);
+            }
+            clipboardString = malloc(size+1);
+            fseek(stringFile, 0, SEEK_SET );
+            fgets(clipboardString,size+1,stringFile);
+            fclose(stringFile);
+            printf("=== size [%zd] ===\n",size);
+            printf("%s\n======",clipboardString);
+            //copy string
+            if(clipboard_copy(sock,region,clipboardString,strlen(clipboardString)) == 0){
                 printf("Error copying \n");
             }
 			continue;
@@ -66,25 +85,33 @@ int main(int argc, char ** argv){
 		//Display all
 		else if(strcmp(command,"a\n") == 0){
             for(region=0;region<10;region++){
-                if((verify=clipboard_paste(sock,region,clipboardString,size)) > 0){
-                    printf("[%d] - %s",region,clipboardString);
-                }else if(verify == -1){
-                    printf("[%d] - (empty slot)\n",region);
+                if((verify=clipboard_paste(sock,region,clipboardString,maxsize)) > 0){
+                    printf("[%d](%d) - %s\n",region,verify,clipboardString);
                 }else{
                     printf("Error while pasting\n");
                 }
             }
 			continue;
-		}
+        }
+        //Wait
         else if(strcmp(command,"w\n") == 0){
-            //clipboard wait
+            //FIXME
             continue;
         }
+        //Exit
         else if(strcmp(command,"e\n") == 0){
-            //Close connection
+            printf("I'm out \n");
             clipboard_close(sock);
             break;
         }
+
+
+        if(clipboardString != NULL){
+            free(clipboardString);
+            clipboardString = NULL;
+        }
     }
-	exit(0);
+    free(socket);
+    free(bytestream);
+    exit(0);
 }

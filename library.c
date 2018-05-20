@@ -48,19 +48,21 @@ int clipboard_copy(int clipboard_id, int region, void *buf, size_t count){
     if(checkParams(clipboard_id,region) != 0){
         return  0;
     }
-    //Send Data
-    //printf("\t[Clipboard copy] buf = %s\n",buf);
 	char * bytestream = malloc(sizeof(struct metaData));
 	struct metaData info;
     size_t sentBytes = 0;
 	info.region=region;
 	info.action=0;
 	info.msg_size=count;
-	memcpy(bytestream,&info,sizeof(struct metaData));
-	if(handShake(clipboard_id,bytestream,sizeof(struct metaData))!=0){
+
+    memcpy(bytestream,&info,sizeof(struct metaData));
+
+	//Inform Clipboard that we'll be sending new data
+    if(handShake(clipboard_id,bytestream,sizeof(struct metaData))!=0){
         free(bytestream);
         return 0;
     }
+    //Send Data
 	if((sentBytes = sendData(clipboard_id,count,buf))==-1){
 		return 0;
 	}
@@ -91,7 +93,7 @@ int clipboard_paste(int clipboard_id, int region, void *buf, size_t count){
 	info.action=1;
 	info.msg_size=-1;
 	memcpy(bytestream,&info,sizeof(struct metaData));
-	if(handShake(clipboard_id,bytestream,sizeof(struct metaData))!= 0){
+    if(handShake(clipboard_id,bytestream,sizeof(struct metaData))!= 0){
         free(bytestream);
         return 0;
     }
@@ -109,21 +111,18 @@ int clipboard_paste(int clipboard_id, int region, void *buf, size_t count){
 	if((received = receiveData(clipboard_id,info.msg_size))==NULL){
         return 0;
 	}
+
     //Handle data
     if(info.msg_size > count ){
-        //FIXME - devia copiar o que pode para o buffer. Talvez memcpy só com count
-        printf("[clipboard_paste] Given buffer is not big enough\n");
+        printf("[clipboard_paste] Given buffer is not big enough for the entire message\n");
+        memcpy(buf,received,count);
         free(received);
         return count;
-    } else if(info.msg_size > 0){
+    } else {
         //printf("\t[clipboard_paste] Paste successful\n");
         memcpy(buf,received,info.msg_size);
         free(received);
         return info.msg_size;
-    } else{
-        //printf("\t[clipboard_paste] Region was empty \n ");
-        free(received);
-        return -1;   //Buf unchanged, region was empty
     }
 }
 
@@ -195,18 +194,24 @@ void clipboard_close(int clipboard_id){
     info.action = 2;
     info.msg_size = 0;
     info.region = -1;
-    memcpy(&info,bytestream,sizeof(struct metaData));
+    memcpy(bytestream,&info,sizeof(struct metaData));
     handShake(clipboard_id,bytestream,sizeof(struct metaData));
     close(clipboard_id);
     free(bytestream);
 }
 
-/***This should be in another file*/
+
+/**
+ *
+ * @param clipboard_id
+ * @param region
+ * @return
+ */
 int checkParams(int clipboard_id, int region){
     if(region<0 || region >REGION_SIZE){
         return -1;
     }
-    if(clipboard_id < 0){       //FIXME - O que fazer mais?
+    if(clipboard_id < 0){
         return -1;
     }
     return 0;
