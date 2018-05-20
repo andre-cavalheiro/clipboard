@@ -144,24 +144,28 @@ void * ClipHub (void * useless){
         printf("[Cliphub] New clipboard connected \n");
         //After a remote clipboard connects, it creates 2 sockets with it:
         // One to receive updates
+        pthread_mutex_lock(&passingArgumentsToHandleClip);
         if(pthread_create(&clipboard_comm, NULL, handleClipboard,sonArg ) != 0){
             perror("[Cliphub] Creating thread");
+            //FIXME
             exit(-1);
         }
         //And one to spread updates whenever there's one
         if((clip_write = accept(sock, NULL, NULL)) == -1) {
             perror("[Cliphub] accept");
+            //FIXME
             exit(-1);
         }
         listNode = malloc(sizeof(struct node));
         listNode->sock = clip_write;
         listNode->id = id++;
-        printList();
+        pthread_mutex_lock(&list_mutex);
         head = criaNovoNoLista(head,listNode,&err);
         printList();
+        pthread_mutex_unlock(&list_mutex);
         if(err !=0){
             //FIXME handle error
-            printf("\t[ClipHub] !!!!!!!!!!!! Error creating new node\n");
+            printf("\t[ClipHub] !!!!!!!! Error creating new node\n");
         }
 
     }
@@ -182,12 +186,13 @@ void * handleClipboard(void * arg){
     remoteClipboard.sock = arg_->sock;
     remoteClipboard.isParent = arg_->isParent;
     remoteClipboard.id = arg_->id;
-    //FIXME we have to create a lock for this passage of arguments
+    pthread_mutex_unlock(&passingArgumentsToHandleClip);
     void * payload = NULL;
     struct metaData info;
     int error=0, logout = 0;
+    t_lista * aux=NULL,*prev=NULL;
+    struct node * node;
 
-    printf("[HandleClipboard]\n");
     /*Whenever a remote clipboard connects to this one,
      the current local clipboard is send out*/
     if(!remoteClipboard.isParent){
@@ -196,7 +201,7 @@ void * handleClipboard(void * arg){
             info = getLocalClipboardInfo(i);
             info.action = 0;
             payload = getLocalClipboardData(i);
-            if(sendDataToRemote(remoteClipboard.sock,info,payload)!=0){
+            if(sendDataToRemote(remoteClipboard.sock,info,payload)!= 0){
                 //FIXME
             }
         }
@@ -210,10 +215,24 @@ void * handleClipboard(void * arg){
         payload = getRemoteData(remoteClipboard.sock, &info, remoteClipboard.isParent,&error,&logout);
         if(logout == 1){
             //Handle clipboard disconnection
-            //FIXME
             printf("\t[HandleClipboard] Remote Client is logging out\n" );
-            logout=0;
-            continue;
+            aux = head;
+            prev = NULL;
+            pthread_mutex_lock(&list_mutex);
+            while(aux != NULL){
+                    node = getItemLista(aux);
+                    if(remoteClipboard.id == node->id){
+                        printf("\t[HandleClipboard] Removing [%d] from connected clipboards \n",remoteClipboard.id);
+                        head = free_node(head,&prev, aux,freePayload);
+                        break;
+                    }
+                    prev = aux;
+                    aux = getProxElementoLista(aux);
+                }
+            printList();
+            pthread_mutex_unlock(&list_mutex);
+            pthread_exit(NULL);
+
         }
         if(error == 1){
             //Handle error
@@ -245,9 +264,9 @@ void * handleClipboard(void * arg){
         printClipboard();
 
     }
-
-    pthread_exit(NULL);
 }
+
+
 
 
 /**
@@ -262,24 +281,29 @@ void * regionWatch(void * region_){
     int region = *region__;
     pthread_mutex_unlock(&setup_mutex);
 
+    struct spread * messageToSpread = malloc(sizeof(struct spread));
     struct metaData info;
-    int list_size=0;
-    struct node * node;
     void * payload = NULL;
+    pthread_t hermes;
     bool parent = 0;
-    t_lista * aux = head;
-    t_lista * prev = NULL;
+
+
+    messageToSpread->region=region;
+    messageToSpread->parent=parent;
 
     while(1){
         pthread_mutex_lock(&mutex[region]);
+
         //Wait for clipboard region to receive new update
         pthread_cond_wait(&cond[region],&mutex[region]);
+
         //Get New Data when unlocked
         //printf("[Region watch - %d] Out of Conditional wait \n", region);
         info = getLocalClipboardInfo(region);
         info.action = 0;
         payload = getLocalClipboardData(region);
-        //printf("[Region watch] [%d] - %s - %zd - %s\n",info.region,info.hash,info.msg_size,(char*)payload);
+        printf("[Region watch] [%d] - %s - %zd - %s\n",info.region,info.hash,info.msg_size,(char*)payload);
+
         //Cleanup for condition wait
         new_data[region] = false;
         parent = from_parent[region];   //check if info came from parent
@@ -287,37 +311,73 @@ void * regionWatch(void * region_){
         pthread_mutex_unlock(&mutex[region]);
         //printf("[Region watch] Cleaned things up \n");
 
-        //Run through clipboards list and spread the new data
-        if(parent){
-            printf("[Region watch] Message came from parent \n");
-            list_size = numItensNaLista(head) -1;
-        }else{
-            printf("[Region watch] Message came from son/local \n");
-            list_size = numItensNaLista(head);
+        messageToSpread->payload = malloc(info.msg_size);
+        memcpy(messageToSpread->payload,payload,info.msg_size);
+        messageToSpread->info.msg_size = info.msg_size;
+        strncpy(messageToSpread->info.hash,info.hash,HASH_SIZE);
+        messageToSpread->info.region= info.region;
+
+        //Launch thread to spread new information
+        pthread_mutex_lock(&passingArgumentsToSpread);
+        //By launching this thread we grantee taht we won't be losing any requests.
+        printf("[Region watch] launching spreadTheWord of (%s)",(char*)messageToSpread->payload);
+        if(pthread_create(&hermes, NULL, spreadTheWord, messageToSpread) != 0){
+            printf("Creating thread");
+            exit(-1);
         }
-        printList();
-        pthread_mutex_lock(&list_mutex);
-        aux = head;
-        prev = NULL;
-        if(list_size != 0){
-            printf("[Region watch] Starting to spread the message. List has size %d \n",list_size);
-            for(int i=0;i<list_size;i++){
-                //printf("[Region watch] list position %d \n",i);
-                node = getItemLista(aux);
-                if(sendDataToRemote(node->sock,info,payload)!=0){
-                    printf("\t[Region watch] !!!!!!!!!!!!!Failed to spread!!!!!!!!!!!!!!!!!!!!!! \n");
-                    aux = free_node(&prev, aux,freePayload);
-                    continue;
-                }
-                prev = aux;
-                aux = getProxElementoLista(aux);
-                printf("[Region watch] Node %d (%d) done [%s] \n",i,node->id,(char*)payload);
-            }
-        }
-        pthread_mutex_unlock(&list_mutex);
-        printf("[Region Watch] Message [%s] is spread \n",(char*)payload);
+        free(payload);
     }
     pthread_exit(NULL);
+}
+
+/**
+ *
+ * @return
+ */
+void * spreadTheWord(void *arg){
+    struct spread * argument = malloc(sizeof(struct spread));
+    argument = arg;
+    struct spread messageToSpread;
+    messageToSpread.region = argument->region;
+    messageToSpread.info = argument->info;
+    messageToSpread.payload = argument->payload;
+    messageToSpread.parent = argument->parent;
+    pthread_mutex_unlock(&passingArgumentsToSpread);
+
+    int list_size;
+    t_lista * aux=NULL, *prev=NULL;
+    struct node *node = NULL;
+    //Run through clipboards list and spread the new data
+    if(messageToSpread.parent){
+        printf("[spreadTheWord] Message came from parent \n");
+        list_size = numItensNaLista(head) -1;
+    }else{
+        printf("[spreadTheWord] Message came from son/local \n");
+        list_size = numItensNaLista(head);
+    }
+    pthread_mutex_lock(&list_mutex);
+    printList();
+    aux = head;
+    prev = NULL;
+    if(list_size != 0){
+        printf("[spreadTheWord] Starting to spread the message. List has size %d \n",list_size);
+        for(int i=0;i<list_size;i++){
+            //printf("[Region watch] list position %d \n",i);
+            node = getItemLista(aux);
+            if(sendDataToRemote(node->sock,messageToSpread.info,messageToSpread.payload)!=0){
+                printf("\t[spreadTheWord] !!!!!!!!!!!!!Failed to spread!!!!!!!!!!!!!!!!!!!!!! \n");
+                head = free_node(head,&prev, aux,freePayload);
+                continue;
+            }
+            prev = aux;
+            aux = getProxElementoLista(aux);
+            printf("[spreadTheWord] Node %d (%d) done [%s] \n",i,node->id,(char*)messageToSpread.payload);
+        }
+    }
+    pthread_mutex_unlock(&list_mutex);
+    printf("[spreadTheWord] Message [%s] is spread \n",(char*)messageToSpread.payload);
+    pthread_exit(NULL);
+
 }
 
 

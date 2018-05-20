@@ -19,7 +19,7 @@ int main(int argc, char** argv) {
     //Clipboard setup
     for(int i=0;i<REGION_SIZE;i++){
         clipboard[i].size = 1;              //We'll just have to live with this
-        clipboard[i].payload = malloc(1);   //Don't fill payload with anything!
+        clipboard[i].payload = malloc(clipboard[i].size);   //Don't fill payload with anything!
         clipboard[i].hash[0] = '\0';
     }
 
@@ -69,6 +69,7 @@ int main(int argc, char** argv) {
         parentArg->id = 0;
         parentArg->isParent = true;
         parentArg->sock = parent_sock_read;
+        pthread_mutex_lock(&passingArgumentsToHandleClip);
         if(pthread_create(&parent_connection, NULL, handleClipboard, parentArg) != 0){
             perror("Creating thread\n");
             exit(-1);
@@ -97,6 +98,8 @@ int main(int argc, char** argv) {
     //Create Signal handlers
     shutdown.sa_handler = shutDownClipboard;
     sigaction(SIGINT,&shutdown,NULL);
+    sigaction(SIGPIPE,&shutdown,NULL);
+    //sigaction(SIGSEGV,&shutdown,NULL);  //FIXME - SHOULD WE?
 
 
     //Create Local Socket for local clients

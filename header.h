@@ -9,6 +9,12 @@ struct data{
     size_t size;
 };
 
+//Nodes of list
+struct node{
+    int sock;
+    int id;
+};
+
 //Argument type for Remote clipboard handlers
 struct argument{
     int id;
@@ -16,12 +22,13 @@ struct argument{
     bool isParent;
 };
 
-//Nodes of list
-struct node{
-    int sock;
-    int id;
+//Arguments for message spreading handlers
+struct spread{
+    int region;
+    struct metaData info;
+    void * payload;
+    bool parent;
 };
-
 
 
 //Global Variables
@@ -32,6 +39,8 @@ t_lista * head;
 pthread_mutex_t mutex[REGION_SIZE];
 pthread_mutex_t setup_mutex ;
 pthread_mutex_t list_mutex;
+pthread_mutex_t passingArgumentsToSpread;
+pthread_mutex_t passingArgumentsToHandleClip;
 pthread_rwlock_t rwlocks[REGION_SIZE];
 pthread_cond_t cond[REGION_SIZE];
 
@@ -48,11 +57,13 @@ int sendDataToRemote(int client,struct metaData info, void* payload);
 //Clipboard functionality Functions
 void * handleLocalClient(void * );
 void * handleClipboard(void * arg);
-void shutDownClipboard(int );
 void * ClipHub (void * );
 void * ClipHandleChild (void * _clip);
 void * ClipHandleParent (void * _clip);
+void * spreadTheWord(void *arg);
 int ClipSync(int parent_id);
+
+void shutDownClipboard(int );
 char * generateHash(int size, int randFactor,int randFactor2);
 void * regionWatch(void * region_);
 void freePayload(void * payload);

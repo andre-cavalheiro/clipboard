@@ -163,16 +163,18 @@ void libertaLista(t_lista *lp, void freeItem(void *)) {
  *
  *****************************************************************************/
 
-t_lista *free_node(t_lista **prev, t_lista *cur,void freeItem(void *)){
+t_lista *free_node(t_lista * head,t_lista **prev, t_lista *cur,void freeItem(void *)){
   t_lista *aux;
 
   //1st node dead
-  if(prev == NULL){
+  if(*prev == NULL){
     *prev = cur;
     cur = getProxElementoLista(cur);
     freeItem(getItemLista(*prev));
     free(*prev);
     *prev = NULL;
+    return cur;
+
   }
 
   else{
@@ -181,7 +183,7 @@ t_lista *free_node(t_lista **prev, t_lista *cur,void freeItem(void *)){
     (*prev)->prox = cur;
     freeItem(getItemLista(aux));
     free(aux);
+    return head;
   }
 
-  return cur;
 }

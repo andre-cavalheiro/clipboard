@@ -1,12 +1,14 @@
 List of stuff to do:
 
->makefile 
->Free memory
+
 >Acabar o wait()
 >new_data está em todo o lado mas nao está a ser usado em lado nenhum porque a cond.wait desbloqueia logo com o pthread_signal...
 >FIXME
->Dont lose request while answering another
+>When parent dies clipboard also dies why?
 >Find if remote comunication breaks
+> app_test sometimes prints trash. I dont think it's a clipboard problem but an app_test problem by reusing the same pointers over and over
+>Valgrind
+>makefile
 
 
 Compiling
