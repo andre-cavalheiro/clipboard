@@ -84,6 +84,9 @@ int main(int argc, char** argv) {
         }
     }
 
+    //Randomize for hash generation
+    srand(getpid());
+
 
     /*Create a thread for each region of the clipboard that will inform other
     clipboards when a change occurs*/
@@ -107,14 +110,7 @@ int main(int argc, char** argv) {
 
 
     //Bind Local socket
-    //FIXME criar um nome para o socket, alterar isto só mm no fim! Para podermos testar à vontade
-    char * delete_me = malloc(100);
-    char * pid = malloc(20);
-    snprintf (pid, 40, "%d",getpid());
-    strcpy(delete_me, SOCK_LOCAL_ADDR);
-    strcat(delete_me,pid);
-    printf("[main] socket in %s\n",delete_me);
-    UnixServerSocket(sock,delete_me,5);
+    UnixServerSocket(sock,SOCK_LOCAL_ADDR,5);
 
 
     // Handle Local clients

@@ -215,11 +215,9 @@ char* generateHash(int size, int randFactor,int randFactor2){  //pid, pthread, n
     char charset[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX";
     char hashTable[15][4];
     char * hash = malloc(size);
-    struct timeval tv;
-    int msec, randomLine,randomColumn;
+    int randomLine,randomColumn;
 
     //Generate table
-    srand(randFactor+randFactor2);
     for(int i = 0;i<15;i++){
         for(int j=0;j<4;j++){
             hashTable[i][j]=charset[rand()%60];
@@ -227,12 +225,6 @@ char* generateHash(int size, int randFactor,int randFactor2){  //pid, pthread, n
     }
 
     //Generate random Hash
-    if (gettimeofday(&tv, NULL) == 0) {
-        msec = ((tv.tv_sec % 86400) * 1000 + tv.tv_usec / 1000);    //Get milliseconds since midnight
-    }else{
-        printf("Error\n");
-    }
-    srand(msec);
     randomLine = rand()%15;
     randomColumn = rand()%4;
 

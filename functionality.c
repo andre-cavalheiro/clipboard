@@ -120,7 +120,7 @@ void * ClipHub (void * useless){
     struct node * listNode = NULL;
     struct argument * sonArg = malloc(sizeof(struct argument));
     
-    //Generating random socket
+    //Generating random port
     srand(getpid());
     port = rand()%63714 + 1024; //generate random port between 1024 and 64738
     //Create Socket

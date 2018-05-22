@@ -33,7 +33,7 @@ int UnixServerSocket(int sockId, char * path, int maxQueueLength){
     struct sockaddr_un local_addr ;
     local_addr.sun_family = AF_UNIX;
     strcpy(local_addr.sun_path, path);
-    //printf("[UnixServerSocket] %s\n",local_addr.sun_path);
+    printf("[UnixServerSocket] %s\n",local_addr.sun_path);
     if(bind(sockId,(struct sockaddr *)&local_addr, sizeof(struct sockaddr)) == -1) {
         //Try to unlink before throwing error
         unlink(path);

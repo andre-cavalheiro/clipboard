@@ -1,14 +1,8 @@
-#include "header.h"
+#include "clipboard.h"
 
 
 
 int main(int argc, char ** argv){
-    if(argc < 2){
-        printf("Missing socket name\n");
-        exit(1);
-    }
-    char * socket = malloc(100 + strlen(argv[1]));
-    char * dir = malloc(5);
     char * command = malloc(2);    //Action to be done in this program
     char * clipboardString = NULL;  //String that will be used to sent/receive data to/from the clipboard
     void * bytestream = malloc(sizeof(struct metaData));    //Pointer to be used in handshakes
@@ -20,15 +14,10 @@ int main(int argc, char ** argv){
     size_t size = 0;
 
 
-    //FIXME Create socket name (i dont think we'll keep this in the final version, but let's keep it until the very last)
-    dir = "/tmp/";
-    strcpy(socket,dir );
-    strcat(socket,argv[1]);
-    printf("%s\n",socket);
-
     //Connect
-	int sock = clipboard_connect(socket);
-	if(sock == -1){
+	//int sock = clipboard_connect("./");
+    int sock = clipboard_connect("./cmake-build-debug/");
+    if(sock == -1){
 		exit(-1);
 	}
 

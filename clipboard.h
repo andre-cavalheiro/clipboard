@@ -9,7 +9,7 @@
 #include "socket_lib.h"
 
 
-#define SOCK_LOCAL_ADDR "/tmp/CLIP"       //FIXME -> devia ser sem o tmp e CLIPBOARD_SOCKET, é só para o debugger funcionar.
+#define SOCK_LOCAL_ADDR "CLIPBOARD_SOCK"    //when SOCKET is put instead of SOCK, the string is cut! why???
 #define REGION_SIZE 10
 #define HASH_SIZE  10
 
