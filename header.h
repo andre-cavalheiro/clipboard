@@ -22,7 +22,7 @@ struct argument{
     bool isParent;
 };
 
-//Arguments for message spreading handlers
+//Arguments for message spreaders
 struct spread{
     int region;
     struct metaData info;
@@ -53,7 +53,6 @@ void setLocalRegion(int region, void * payload,size_t size,char*hash);
 void * getRemoteData(int sock,struct metaData *info,bool compare,int* err,int* logout);
 int sendDataToRemote(int client,struct metaData info, void* payload);
 
-
 //Clipboard functionality Functions
 void * handleLocalClient(void * );
 void * handleClipboard(void * arg);
@@ -61,13 +60,14 @@ void * ClipHub (void * );
 void * ClipHandleChild (void * _clip);
 void * ClipHandleParent (void * _clip);
 void * spreadTheWord(void *arg);
+void * regionWatch(void * region_);
 int ClipSync(int parent_id);
 
+//Clipboard helper functions
 void shutDownClipboard(int );
-char * generateHash(int size, int randFactor,int randFactor2);
-void * regionWatch(void * region_);
+char * generateHash(int size);
 void freePayload(void * payload);
 
-
+//Clipboard development functions
 void printClipboard();
 void printList();

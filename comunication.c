@@ -44,7 +44,7 @@ struct metaData getLocalClipboardInfo(int region){
  */
 void setLocalRegion(int region, void * payload,size_t size,char*hash){
     if(hash == NULL){
-        hash = generateHash(HASH_SIZE,getpid(),pthread_self());
+        hash = generateHash(HASH_SIZE);
     }
 
     pthread_rwlock_wrlock(&rwlocks[region]);
@@ -181,13 +181,7 @@ void shutDownClipboard(int sig) {
     }
 
     //Unlink local socket
-    //FIXME - all this stuuf is just to generate the CLIP... socket name which wont be in the final version
-    char *delete_me = malloc(100);
-    char *pid = malloc(20);
-    snprintf(pid, 40, "%d", getpid());
-    strcpy(delete_me, SOCK_LOCAL_ADDR);
-    strcat(delete_me, pid);
-    unlink(delete_me);
+    unlink(SOCK_LOCAL_ADDR);
 
     //Inform other clipboards of my death and free memory
     pthread_mutex_lock(&list_mutex);
@@ -210,14 +204,13 @@ void shutDownClipboard(int sig) {
  * @param randFactor2
  * @return
  */
-char* generateHash(int size, int randFactor,int randFactor2){  //pid, pthread, numo nanoseconds since ...
-    //62 elementos, tirei o w,W para fazer 60.
-    char charset[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX";
+char* generateHash(int size){
+    char charset[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX"; //60 characters
     char hashTable[15][4];
     char * hash = malloc(size);
     int randomLine,randomColumn;
 
-    //Generate table
+    //Generate random table
     for(int i = 0;i<15;i++){
         for(int j=0;j<4;j++){
             hashTable[i][j]=charset[rand()%60];

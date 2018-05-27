@@ -15,8 +15,8 @@ int main(int argc, char ** argv){
 
 
     //Connect
-	//int sock = clipboard_connect("./");
-    int sock = clipboard_connect("./cmake-build-debug/");
+	int sock = clipboard_connect("./");
+    //int sock = clipboard_connect("./cmake-build-debug/");
     if(sock == -1){
 		exit(-1);
 	}

@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
         clipboard[i].hash[0] = '\0';
     }
 
-    //handle command line arguments  -- should handle errors
+    //handle command line arguments  //FIXME should handle errors
     opt = getopt(argc, argv, "c:");
     pthread_t clipboard_hub;
     if(opt == 'c'){
@@ -90,7 +90,7 @@ int main(int argc, char** argv) {
 
     /*Create a thread for each region of the clipboard that will inform other
     clipboards when a change occurs*/
-    int region[REGION_SIZE];            //FIXME later - not a very clean way of doing this but works fine
+    int region[REGION_SIZE];            //FIXME - not a very clean way of doing this but works fine
     for(int i=0;i<REGION_SIZE;i++){
         region[i]=i;
         //CHEESY CRITICAL REGION FOR localHandler
@@ -101,7 +101,7 @@ int main(int argc, char** argv) {
     //Create Signal handlers
     shutdown.sa_handler = shutDownClipboard;
     sigaction(SIGINT,&shutdown,NULL);
-    sigaction(SIGPIPE,&shutdown,NULL);
+    //sigaction(SIGPIPE,&shutdown,NULL);  //FIXME - SHOULD WE?
     //sigaction(SIGSEGV,&shutdown,NULL);  //FIXME - SHOULD WE?
 
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 mkdir -p /tmp/tests
-
+cd ..
 curdir=$(pwd)
 
 cd /tmp/tests

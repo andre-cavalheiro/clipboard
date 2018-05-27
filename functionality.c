@@ -18,15 +18,20 @@ void * handleLocalClient(void * client__){
 
     while(1){
         //printf("[Local] Ready to receive \n");
+
         //Wait for local client to make request
         bytestream = handleHandShake(client, sizeof(struct metaData));
+        if(bytestream == NULL){
+            pthread_exit(NULL);
+        }
         memcpy(&info,bytestream,sizeof(struct metaData));
         //Handle request accordingly
         switch (info.action){
             case 0:
                 //client wants to send data to server (Copy)
-
-                payload = receiveData(client,info.msg_size);
+                if((payload = receiveData(client,info.msg_size))==NULL){
+                    pthread_exit(NULL);
+                }
 
                 //printf("[Local] Client wants to copy region %d with size %zd\n",info.region,info.msg_size);
 
@@ -57,8 +62,12 @@ void * handleLocalClient(void * client__){
                 //***************CRITICAL REGION****************
 
                 memcpy(bytestream,&info, sizeof(struct metaData));
-                handShake(client,bytestream,sizeof(struct metaData));
-                sendData(client,info.msg_size,payload);
+                if(handShake(client,bytestream,sizeof(struct metaData)) != 0){
+                    pthread_exit(NULL);
+                }
+                if(sendData(client,info.msg_size,payload) != info.msg_size){
+                    pthread_exit(NULL);
+                }
 
                 //printf("[Local] Paste completed\n");
                 break;
@@ -70,7 +79,7 @@ void * handleLocalClient(void * client__){
                 }
                 pthread_exit(NULL);
                 break;
-                /*case 3:
+            /*case 3:
                     //client is requesting wait
                     printf("[Local] Client wants to wait for a new addition to region %d\n",info.region);
                     /***************CRITICAL REGION****************
@@ -287,7 +296,6 @@ void * regionWatch(void * region_){
     pthread_t hermes;
     bool parent = 0;
 
-
     messageToSpread->region=region;
     messageToSpread->parent=parent;
 
@@ -295,6 +303,7 @@ void * regionWatch(void * region_){
         pthread_mutex_lock(&mutex[region]);
 
         //Wait for clipboard region to receive new update
+        //FIXME with loop
         pthread_cond_wait(&cond[region],&mutex[region]);
 
         //Get New Data when unlocked
@@ -319,8 +328,8 @@ void * regionWatch(void * region_){
 
         //Launch thread to spread new information
         pthread_mutex_lock(&passingArgumentsToSpread);
-        //By launching this thread we grantee taht we won't be losing any requests.
-        printf("[Region watch] launching spreadTheWord of (%s)",(char*)messageToSpread->payload);
+
+        printf("[Region watch] launching spreadTheWord of (%s) \n",(char*)messageToSpread->payload);
         if(pthread_create(&hermes, NULL, spreadTheWord, messageToSpread) != 0){
             printf("Creating thread");
             exit(-1);

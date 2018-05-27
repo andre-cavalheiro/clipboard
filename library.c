@@ -15,7 +15,7 @@
 /**
  *
  * @param clipboard_dir
- * @return  socket file descriptor on sucess / -1 on error
+ * @return  socket file descriptor on success / -1 on error
  */
 int clipboard_connect(char * clipboard_dir){			//Must use clipboard_dir
 	char * path = malloc(strlen(clipboard_dir)+strlen(SOCK_LOCAL_ADDR));

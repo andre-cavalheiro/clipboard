@@ -11,8 +11,8 @@ int main(){
 	dados[1] = '\0';
 
 	// Connects to the cliboard
-	//int sock_fd = clipboard_connect("./");
-	int sock_fd = clipboard_connect("./cmake-build-debug/");
+	int sock_fd = clipboard_connect("./");
+	//int sock_fd = clipboard_connect("./cmake-build-debug/");
 	if(sock_fd == -1){
 		exit(-1);
 	}
