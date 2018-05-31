@@ -37,15 +37,17 @@ struct data clipboard[REGION_SIZE];
 bool new_data[REGION_SIZE];
 bool from_parent[REGION_SIZE];
 t_lista * head;
+
 pthread_mutex_t mutex[REGION_SIZE];
 pthread_mutex_t setup_mutex ;
 pthread_mutex_t list_mutex;
 pthread_mutex_t passingArgumentsToSpread;
 pthread_mutex_t passingArgumentsToHandleClip;
 pthread_rwlock_t rwlocks[REGION_SIZE];
+pthread_mutex_t waitingList_mutex[REGION_SIZE];
 pthread_cond_t cond[REGION_SIZE];
 
-t_lista * new_info[REGION_SIZE]; //FIXME should change this so info doesn't get confused
+t_lista * waitingLists[REGION_SIZE];
 
 
 void freeNewInfoNode(void * payload);

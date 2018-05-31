@@ -25,7 +25,7 @@ int main(int argc, char ** argv){
 	while(1) {
 		printf("\nRun \tc - copy\tp - paste\ta - show all\tw - wait\te - exit\n");
 		//Receive command
-        command = fgets(command,3,stdin);
+        command = fgets(command,4,stdin);
         region = -1;
 
         //Paste
@@ -39,7 +39,7 @@ int main(int argc, char ** argv){
             }else{
                 printf("Error while pasting\n");
             }
-			continue;
+			continue;   //FIXME am i supposed to be here?
 		}
 		//Copy
 		else if(strcmp(command,"c\n") == 0) {
@@ -52,6 +52,7 @@ int main(int argc, char ** argv){
             stdin = freopen(NULL,"r",stdin);
             fgets(&enable,0,stdin);
             stringFile=fopen("/tmp/stringFile","w+");
+            size=0;
             while(1){
                 ch = fgetc(stdin);
                 if( ch =='\n')
@@ -63,6 +64,7 @@ int main(int argc, char ** argv){
             fseek(stringFile, 0, SEEK_SET );
             fgets(clipboardString,size+1,stringFile);
             fclose(stringFile);
+
             printf("=== size [%zd] ===\n",size);
             printf("%s\n======",clipboardString);
             //copy string
@@ -73,7 +75,8 @@ int main(int argc, char ** argv){
 		}
 		//Display all
 		else if(strcmp(command,"a\n") == 0){
-            for(region=0;region<10;region++){
+            clipboardString = malloc(maxsize);
+            for(region=0;region<REGION_SIZE;region++){
                 if((verify=clipboard_paste(sock,region,clipboardString,maxsize)) > 0){
                     printf("[%d](%d) - %s\n",region,verify,clipboardString);
                 }else{
@@ -84,7 +87,16 @@ int main(int argc, char ** argv){
         }
         //Wait
         else if(strcmp(command,"w\n") == 0){
-            //FIXME
+            printf("What region?\t");
+            scanf("%d",&region);
+            getchar();
+            clipboardString = malloc(maxsize);
+            if((verify=clipboard_wait(sock,region,clipboardString,maxsize)) > 0){
+                printf("[%d](%d) - %s \n",region,verify,clipboardString);
+            }else{
+                printf("Error while pasting\n");
+            }
+
             continue;
         }
         //Exit
@@ -100,7 +112,7 @@ int main(int argc, char ** argv){
             clipboardString = NULL;
         }
     }
-    free(socket);
+    unlink(SOCK_LOCAL_ADDR);
     free(bytestream);
     exit(0);
 }

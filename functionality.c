@@ -45,13 +45,15 @@ void * handleLocalClient(void * client__){
                 pthread_mutex_unlock(&mutex[info.region]);
                 //***************CRITICAL REGION****************
 
-
-                new_info[info.region] = criaNovoNoLista(new_info[info.region],data,&error);
+                pthread_mutex_lock(&waitingList_mutex[info.region]);
+                waitingLists[info.region] = criaNovoNoLista(waitingLists[info.region],data,&error);
+                pthread_mutex_unlock(&waitingList_mutex[info.region]);
                 if(error==1){
+                    pthread_exit(NULL);
                     printf("\t[Local] Error adding new info to list\n");
                 }
                 data->from_parent = 0;
-                pthread_cond_signal(&cond[info.region]);
+                pthread_cond_broadcast(&cond[info.region]);
 
 
                 printClipboard();
@@ -89,29 +91,32 @@ void * handleLocalClient(void * client__){
                 }
                 pthread_exit(NULL);
                 break;
-            /*case 3:
+            case 3:
                     //client is requesting wait
                     printf("[Local] Client wants to wait for a new addition to region %d\n",info.region);
-                    /***************CRITICAL REGION****************
-                     pthread_mutex_lock(&mutex[info.region]);
+                    /***************CRITICAL REGION****************/
+                    pthread_mutex_lock(&mutex[info.region]);
 
-                     while(!new_data[info.region]){  //FIXME
-                         pthread_cond_wait(&cond[info.region],&mutex[info.region]);
-                     }
+                    pthread_cond_wait(&cond[info.region],&mutex[info.region]);
+                    printf("Initating wait \n");
 
                     pthread_rwlock_rdlock(&rwlocks[info.region]);
-                    info.msg_size = clipboard[info.region].size;
-                    //Informar cliente do tamanho da mensagem
-                    memcpy(bytestream_pst,&info,sizeof(struct metaData));
-                    handShake(client,bytestream_pst,sizeof(struct metaData));
 
-                    //this sucks, but other option is to malloc which is shit too!!
-                    sendData(client,info.msg_size,clipboard[info.region].payload);
+                    info = getLocalClipboardInfo(info.region);
+                    payload = getLocalClipboardData(info.region);
+
                     pthread_rwlock_unlock(&rwlocks[info.region]);
+
                     pthread_mutex_unlock(&mutex[info.region]);
-                    /***************CRITICAL REGION****************
+                    /***************CRITICAL REGION****************/
+                    memcpy(bytestream,&info, sizeof(struct metaData));
+                    if(handShake(client,bytestream,sizeof(struct metaData)) != 0){
+                        pthread_exit(NULL);
+                    }
+                    if(sendData(client,info.msg_size,payload) != info.msg_size){
+                        pthread_exit(NULL);
+                    }
                     break;
-                     }*/
             default:
                 //Error:
                 if(bytestream != NULL){
@@ -166,13 +171,11 @@ void * ClipHub (void * useless){
         pthread_mutex_lock(&passingArgumentsToHandleClip);
         if(pthread_create(&clipboard_comm, NULL, handleClipboard,sonArg ) != 0){
             perror("[Cliphub] Creating thread");
-            //FIXME
             exit(-1);
         }
         //And one to spread updates whenever there's one
         if((clip_write = accept(sock, NULL, NULL)) == -1) {
             perror("[Cliphub] accept");
-            //FIXME
             exit(-1);
         }
         listNode = malloc(sizeof(struct node));
@@ -183,8 +186,8 @@ void * ClipHub (void * useless){
         printList();
         pthread_mutex_unlock(&list_mutex);
         if(err !=0){
-            //FIXME handle error
             printf("\t[ClipHub] !!!!!!!! Error creating new node\n");
+            exit(-1);
         }
 
     }
@@ -206,6 +209,7 @@ void * handleClipboard(void * arg){
     remoteClipboard.isParent = arg_->isParent;
     remoteClipboard.id = arg_->id;
     pthread_mutex_unlock(&passingArgumentsToHandleClip);
+
     void * payload = NULL;
     struct metaData info;
     struct data * data = NULL;
@@ -232,7 +236,7 @@ void * handleClipboard(void * arg){
     //Wait for an update by the remote clipboard
     while(1){
         //Receive information about the new data and verify if it's actually new
-        //FIXME maybe should go through the all new_info list
+        //FIXME maybe should go through the all waitingLists list
         payload = getRemoteData(remoteClipboard.sock, &info, remoteClipboard.isParent,&error,&logout);
         if(logout == 1){
             //Handle clipboard disconnection
@@ -272,11 +276,13 @@ void * handleClipboard(void * arg){
         }
         //Update Local Clipboard
         data=setLocalRegion(info.region,payload,info.msg_size,info.hash);
-        printf("[HandleClipboard] Received and updated: [%d] - %s - %s \n",info.region,info.hash ,(char*)payload);
+        printf("[HandleClipboard] Received and updated: [%d] - %s \n",info.region,info.hash );
 
         strncpy(data->hash,info.hash,HASH_SIZE);
         data->from_parent = remoteClipboard.isParent;
-        new_info[info.region] = criaNovoNoLista(new_info[info.region],data,&error);
+        pthread_mutex_lock(&waitingList_mutex[info.region]);
+        waitingLists[info.region] = criaNovoNoLista(waitingLists[info.region],data,&error);
+        pthread_mutex_unlock(&waitingList_mutex[info.region]);
         if(error==1){
             printf("\t[HandleClipboard] Error adding new info to list\n");
         }
@@ -285,12 +291,12 @@ void * handleClipboard(void * arg){
         pthread_mutex_lock(&mutex[info.region]);
         new_data[info.region]=true;
         from_parent[info.region]=remoteClipboard.isParent;
+        //Send signal to spread new data
+        pthread_cond_broadcast(&cond[info.region]);
         pthread_mutex_unlock(&mutex[info.region]);
         //***************CRITICAL REGION****************
 
 
-        //Send signal to spread new data
-        pthread_cond_signal(&cond[info.region]);
 
         printClipboard();
 
@@ -330,11 +336,14 @@ void * regionWatch(void * region_){
         pthread_mutex_lock(&mutex[region]);
 
         //Wait for clipboard region to receive new update
-        while(getItemLista(new_info[region]) == NULL){
+        while(getItemLista(waitingLists[region]) == NULL){
             pthread_cond_wait(&cond[region],&mutex[region]);
         }
-        aux = getLastNode(new_info[region]);
+        pthread_mutex_lock(&waitingList_mutex[region]);
+        aux = getLastNode(waitingLists[region]);
         data = getItemLista(aux);
+        pthread_mutex_unlock(&waitingList_mutex[region]);
+
 
         //Get New Data when unlocked
         //printf("[Region watch - %d] Out of Conditional wait \n", region);
@@ -346,22 +355,25 @@ void * regionWatch(void * region_){
         payload = malloc(data->size);
         memcpy(payload,data->payload,data->size);
         parent = data->from_parent;
-        printf("[Region watch] [%d] - %s - %zd - %s\n",info.region,info.hash,info.msg_size,(char*)payload);
+
+        printf("[Region watch] [%d] - %s - %zd \n",info.region,info.hash,info.msg_size);
 
 
         //Cleanup for condition wait
         //new_data[region] = false;
+        pthread_mutex_lock(&waitingList_mutex[info.region]);
         if(getProxElementoLista(aux)!= NULL){
-            aux2=new_info[region];
+            aux2=waitingLists[region];
             while(aux2 != aux){
                 aux2=getProxElementoLista(aux2);
             }
         }else{
             aux2=NULL;
         }
-        printList(new_info[region]);
-        new_info[region] = free_node(new_info[region],&aux2,aux,freeNewInfoNode);
-        printList(new_info[region]);
+        printList(waitingLists[region]);
+        waitingLists[region] = free_node(waitingLists[region],&aux2,aux,freeNewInfoNode);
+        printList(waitingLists[region]);
+        pthread_mutex_unlock(&waitingList_mutex[info.region]);
         pthread_mutex_unlock(&mutex[region]);
         //printf("[Region watch] Cleaned things up \n");
 
@@ -369,15 +381,15 @@ void * regionWatch(void * region_){
         memcpy(messageToSpread->payload,payload,info.msg_size);
         messageToSpread->info.msg_size = info.msg_size;
         strncpy(messageToSpread->info.hash,info.hash,HASH_SIZE);
+        messageToSpread->info.action=-1;
         messageToSpread->info.region= info.region;
 
         //Launch thread to spread new information
         pthread_mutex_lock(&passingArgumentsToSpread);
 
-        printf("[Region watch] launching spreadTheWord of (%s) \n",(char*)messageToSpread->payload);
-        int delete_me;
-        if((delete_me = pthread_create(&hermes, NULL, spreadTheWord, messageToSpread)) != 0){
-            printf("[Region watch ] Error Creating thread (%d)",delete_me);
+        printf("[Region watch] launching spreadTheWord of (%s) \n",(char*)messageToSpread->info.hash);
+        if( pthread_create(&hermes, NULL, spreadTheWord, messageToSpread) != 0){
+            printf("[Region watch ] Error Creating thread ");
             exit(-1);
         }
         free(payload);
@@ -390,7 +402,7 @@ void * regionWatch(void * region_){
  * @return
  */
 void * spreadTheWord(void *arg){
-    struct spread * argument = malloc(sizeof(struct spread));
+    struct spread * argument;
     argument = arg;
     struct spread messageToSpread;
     messageToSpread.region = argument->region;
@@ -426,13 +438,12 @@ void * spreadTheWord(void *arg){
             }
             prev = aux;
             aux = getProxElementoLista(aux);
-            printf("[spreadTheWord] Node %d (%d) done [%s] \n",i,node->id,(char*)messageToSpread.payload);
+            printf("[spreadTheWord] Node %d (%d) done [%s] \n",i,node->id,messageToSpread.info.hash);
         }
     }
     pthread_mutex_unlock(&list_mutex);
-    printf("[spreadTheWord] Message [%s] is spread \n",(char*)messageToSpread.payload);
+    printf("[spreadTheWord] Message [%s] is spread \n",messageToSpread.info.hash);
     pthread_exit(NULL);
-
 }
 
 
@@ -458,7 +469,7 @@ int ClipSync(int parent_id){
             error = 0;
             continue;
         }
-        printf("[ClipSync] Received [%d] - %s \t %s \n",info.region,info.hash ,(char*)received);
+        printf("[ClipSync] Received [%d] - %s \n",info.region,info.hash );
         setLocalRegion(i,received,info.msg_size,info.hash);
         printf("[ClipSync] Updated Local Region %d\n",i);
     }

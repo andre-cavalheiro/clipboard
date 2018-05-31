@@ -8,6 +8,7 @@ int main(int argc, char** argv) {
     pthread_mutex_init ( &list_mutex, NULL);
     for(int i=0;i<REGION_SIZE;i++){
         pthread_mutex_init ( &mutex[i], NULL);
+        pthread_mutex_init(&waitingList_mutex[i],NULL);
     }
 
     //Local variables
@@ -18,10 +19,10 @@ int main(int argc, char** argv) {
 
     //Clipboard setup
     for(int i=0;i<REGION_SIZE;i++){
-        clipboard[i].size = 1;              //We'll just have to live with this
-        clipboard[i].payload = malloc(clipboard[i].size);   //Don't fill payload with anything!
+        clipboard[i].size =1 ;              //We'll just have to live with this
+        clipboard[i].payload = calloc(1,clipboard[i].size);   //Don't fill payload with anything!
         clipboard[i].hash[0] = '\0';
-        new_info[i]=iniLista();
+        waitingLists[i]=iniLista();
     }
 
     //handle command line arguments  //FIXME should handle errors
@@ -101,8 +102,9 @@ int main(int argc, char** argv) {
 
     //Create Signal handlers
     shutdown.sa_handler = shutDownClipboard;
-    sigaction(SIGINT,&shutdown,NULL);
-    //sigaction(SIGPIPE,&shutdown,NULL);  //FIXME - SHOULD WE?
+    sigemptyset(&shutdown.sa_mask);
+    sigaction(SIGINT,&shutdown,NULL);   //FIXME check if it worked
+    signal(SIGPIPE,SIG_IGN);
     //sigaction(SIGSEGV,&shutdown,NULL);  //FIXME - SHOULD WE?
 
 

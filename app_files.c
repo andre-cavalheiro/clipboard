@@ -1,3 +1,4 @@
+#include "clipboard.h"
 #include <sys/types.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -6,9 +7,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "clipboard.h"
-
-#define MAX_INPUT 1000
+#define MAX_INPUT 3000000
 
 int main(int argc, char const *argv[]) {
 
@@ -101,7 +100,7 @@ int main(int argc, char const *argv[]) {
 			printf("How many bytes: ");
 			fgets(message,MAX_INPUT,stdin);
 			sscanf(message, "%d", &many);
-			
+		
 			char *recv_buf = (char*)malloc(sizeof(char)*many);
 
 			if(clipboard_wait(clipboard_id, region, recv_buf, (size_t)many) == 0) {

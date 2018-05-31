@@ -150,7 +150,7 @@ int sendDataToRemote(int client,struct metaData info, void* payload){
         }
         //printf("[sendRemoteData] Done sending\n");
     }else{
-        printf("[senDataToRemote] Client refused information [%s]\n",(char*)payload);
+        printf("[senDataToRemote] Client refused information [%s]\n",info.hash);
     }
     free(bytestream);
     return 0;
@@ -171,7 +171,6 @@ void shutDownClipboard(int sig) {
     t_lista * aux = head;
     struct metaData info;
     void * bytestream = malloc(sizeof(struct metaData));
-    //FILE * f = fopen("finalClip.txt","w");
 
     info.action = 4;
     memcpy(bytestream,&info, sizeof(struct metaData));
@@ -183,11 +182,10 @@ void shutDownClipboard(int sig) {
         pthread_rwlock_wrlock(&rwlocks[i]);
         //Free clipboard
         if (clipboard[i].payload != NULL) {
-            //fprintf(f,"[%d](%s) - %s \n",i,clipboard[i].hash,clipboard[i].payload);
             free(clipboard[i].payload);
         }
     }
-    //fclose(f);
+
     //Unlink local socket
     unlink(SOCK_LOCAL_ADDR);
 
@@ -199,9 +197,8 @@ void shutDownClipboard(int sig) {
         handShake(*client,bytestream,sizeof(struct metaData));
         aux = getProxElementoLista(aux);
     }
+    free(bytestream);
     libertaLista(head,freePayload);
-
-    //FIXME unlink internet socket
 }
 
 /**
@@ -215,7 +212,7 @@ void shutDownClipboard(int sig) {
 char* generateHash(int size){
     char charset[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX"; //60 characters
     char hashTable[15][4];
-    char * hash = malloc(size);
+    char * hash = malloc(size+1);
     int randomLine,randomColumn;
 
     //Generate random table

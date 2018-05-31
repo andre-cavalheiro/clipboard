@@ -18,18 +18,21 @@
  * @return  socket file descriptor on success / -1 on error
  */
 int clipboard_connect(char * clipboard_dir){			//Must use clipboard_dir
-	char * path = malloc(strlen(clipboard_dir)+strlen(SOCK_LOCAL_ADDR));
+	char * path = malloc(strlen(clipboard_dir)+strlen(SOCK_LOCAL_ADDR)+1);
     snprintf(path, strlen(clipboard_dir)+strlen(SOCK_LOCAL_ADDR)+1, "%s%s", clipboard_dir, SOCK_LOCAL_ADDR);
     //Creating
 	int sock ;
 	if((sock = createSocket(AF_UNIX,SOCK_STREAM)) == -1){
-		return -1;
+        free(path);
+        return -1;
 	}
 	//Connect
     if(UnixClientSocket(sock,path)==-1){
-		return -1;
+        free(path);
+        return -1;
 	}
 	printf("\t[Clipboard Connect] connected successfully\n");
+    free(path);
 	return sock;
 }
 
@@ -90,6 +93,7 @@ int clipboard_paste(int clipboard_id, int region, void *buf, size_t count){
 	info.region=region;
 	info.action=1;
 	info.msg_size=-1;
+    info.hash[0]='\0';
 	memcpy(bytestream,&info,sizeof(struct metaData));
     if(handShake(clipboard_id,bytestream,sizeof(struct metaData))!= 0){
         free(bytestream);
@@ -145,6 +149,7 @@ int clipboard_wait(int clipboard_id, int region, void *buf, size_t count){
     info.region=region;
     info.action=3;
     info.msg_size=-1;
+    info.hash[0]='\0';
     memcpy(bytestream,&info,sizeof(struct metaData));
     if(handShake(clipboard_id,bytestream,sizeof(struct metaData))!= 0){
         free(bytestream);
@@ -158,7 +163,6 @@ int clipboard_wait(int clipboard_id, int region, void *buf, size_t count){
     }
     memcpy(&info,bytestream,sizeof(struct metaData));
     free(bytestream);
-    received = malloc(info.msg_size);                                   //FIXME Check if malloc is necessary, i dont think so
 
     //Get data
     if((received = receiveData(clipboard_id,info.msg_size))==NULL){
@@ -166,20 +170,16 @@ int clipboard_wait(int clipboard_id, int region, void *buf, size_t count){
     }
     //Handle data
     if(info.msg_size > count ){
-        //FIXME - devia copiar o que pode para o buffer. Talvez memcpy só com count
-        printf("[clipboard_paste] Given buffer is not big enough\n");
+        memcpy(buf,received,count);
+        printf("[clipboard_wait] Given buffer is not big enough\n");
         free(received);
         return count;
     } else if(info.msg_size > 0){
-        //printf("\t[clipboard_paste] Paste successful\n");
+        printf("\t[clipboard_wait] wait successful\n");
         memcpy(buf,received,info.msg_size);
         free(received);
-        return info.msg_size;
-    } else{
-        //printf("\t[clipboard_paste] Region was empty \n ");
-        free(received);
-        return -1;   //Buf unchanged, region was empty
     }
+    return info.msg_size;
 }
 
 /**
@@ -206,7 +206,7 @@ void clipboard_close(int clipboard_id){
  * @return
  */
 int checkParams(int clipboard_id, int region){
-    if(region<0 || region >REGION_SIZE){
+    if(region<0 || region >= REGION_SIZE){
         return -1;
     }
     if(clipboard_id < 0){
