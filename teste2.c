@@ -16,17 +16,20 @@ int main(){
 	if(sock_fd == -1){
 		exit(-1);
 	}
-	while(1) {
+    int i=0;
+	while(i<1000000) {
 		dados[0] = rand()%(122-65)+65;
 
 		// Sends the data to the cliboard server
-		copyData = clipboard_copy(sock_fd, 0, dados, 2);
+		copyData = clipboard_copy(sock_fd, 1, dados, 2);
 		if(copyData < 1) {
 			printf("Error on copy\n");
 		}
 		else {
 			//printf("Sent %d - data: %s\n", copyData, dados);
 		}
+        i++;
+		usleep(500);
 	}
 	
 	close(sock_fd);

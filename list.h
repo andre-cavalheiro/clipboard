@@ -31,5 +31,6 @@ void * getItemLista (t_lista *p);
 t_lista  *getProxElementoLista(t_lista *p);
 int numItensNaLista (t_lista *lp);
 void libertaLista(t_lista *lp, void freeItem(void*));
+t_lista * getLastNode(t_lista * head);
 t_lista *free_node(t_lista * head,t_lista **prev, t_lista *cur,void freeItem(void *));
 #endif

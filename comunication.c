@@ -42,7 +42,8 @@ struct metaData getLocalClipboardInfo(int region){
  * @param hash
  * @param size
  */
-void setLocalRegion(int region, void * payload,size_t size,char*hash){
+struct data * setLocalRegion(int region, void * payload,size_t size,char*hash){
+    struct data * data = malloc(sizeof(struct data));
     if(hash == NULL){
         hash = generateHash(HASH_SIZE);
     }
@@ -52,6 +53,13 @@ void setLocalRegion(int region, void * payload,size_t size,char*hash){
     strncpy(clipboard[region].hash,hash,HASH_SIZE);
     clipboard[region].payload = payload;
     pthread_rwlock_unlock(&rwlocks[region]);
+
+    data->payload = malloc(size);
+    memcpy(data->payload,payload,size);
+    data->size = size;
+    strncpy(data->hash,hash,HASH_SIZE);
+    //FIXME falta defenir o from parent
+    return data;
 }
 
 /**
@@ -163,23 +171,23 @@ void shutDownClipboard(int sig) {
     t_lista * aux = head;
     struct metaData info;
     void * bytestream = malloc(sizeof(struct metaData));
+    //FILE * f = fopen("finalClip.txt","w");
 
     info.action = 4;
     memcpy(bytestream,&info, sizeof(struct metaData));
 
-    //Free clipboard
-
+    //Free clipboard and print final output
     for (int i = 0; i < REGION_SIZE; i++) {
         //Lock region just in case
         pthread_mutex_lock(&mutex[i]);
         pthread_rwlock_wrlock(&rwlocks[i]);
         //Free clipboard
         if (clipboard[i].payload != NULL) {
+            //fprintf(f,"[%d](%s) - %s \n",i,clipboard[i].hash,clipboard[i].payload);
             free(clipboard[i].payload);
         }
-
     }
-
+    //fclose(f);
     //Unlink local socket
     unlink(SOCK_LOCAL_ADDR);
 

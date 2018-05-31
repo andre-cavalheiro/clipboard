@@ -83,7 +83,9 @@ t_lista  *criaNovoNoLista (t_lista* lp, void *this, int *err) {
  *****************************************************************************/
 
 void *getItemLista (t_lista *p) {
-
+  if(p==NULL){
+      return NULL;
+  }
   return p -> this;
 }
 
@@ -100,7 +102,6 @@ void *getItemLista (t_lista *p) {
  *****************************************************************************/
 
 t_lista *getProxElementoLista(t_lista *p) {
-
   return p -> prox;
 }
 
@@ -186,4 +187,17 @@ t_lista *free_node(t_lista * head,t_lista **prev, t_lista *cur,void freeItem(voi
     return head;
   }
 
+}
+
+/**
+ *
+ * @param head
+ * @return
+ */
+t_lista * getLastNode(t_lista * head){
+  t_lista * aux = head;
+  while(getProxElementoLista(aux) != NULL){
+    aux = getProxElementoLista(aux);
+  }
+  return aux;
 }

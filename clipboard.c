@@ -21,6 +21,7 @@ int main(int argc, char** argv) {
         clipboard[i].size = 1;              //We'll just have to live with this
         clipboard[i].payload = malloc(clipboard[i].size);   //Don't fill payload with anything!
         clipboard[i].hash[0] = '\0';
+        new_info[i]=iniLista();
     }
 
     //handle command line arguments  //FIXME should handle errors
@@ -53,7 +54,7 @@ int main(int argc, char** argv) {
         node->id=0;
         head = criaNovoNoLista(head,node,&err);
         if(err != 0){
-            printf("Error creating node\n");
+            printf("[main] Error creating node\n");
         }
 
         //Receives current clipboard from parent
@@ -61,7 +62,7 @@ int main(int argc, char** argv) {
 
         //Creates clipboard hub to allow connections from other clipboards
         if(pthread_create(&clipboard_hub, NULL, ClipHub,NULL) != 0){
-            perror("Creating thread\n");
+            perror("[main]Creating thread\n");
             exit(-1);
         }
 
@@ -71,7 +72,7 @@ int main(int argc, char** argv) {
         parentArg->sock = parent_sock_read;
         pthread_mutex_lock(&passingArgumentsToHandleClip);
         if(pthread_create(&parent_connection, NULL, handleClipboard, parentArg) != 0){
-            perror("Creating thread\n");
+            perror("[main] Creating thread\n");
             exit(-1);
         }
     }
@@ -79,7 +80,7 @@ int main(int argc, char** argv) {
         //In case clipboard is launched in local mode
         //Creates clipboard hub to allow connections from other clipboards
         if(pthread_create(&clipboard_hub, NULL, ClipHub, NULL) != 0){
-            perror("Creating thread\n");
+            perror("[main] Creating thread\n");
             exit(-1);
         }
     }
@@ -115,15 +116,15 @@ int main(int argc, char** argv) {
 
     // Handle Local clients
     while(1){
-        printf("Ready to accept \n");
+        printf("[main] Ready to accept \n");
         if((*client = accept(sock, NULL, NULL)) == -1) {
-            perror("accept");
+            perror("[main] accept");
             exit(-1);
         }
         //CHEESY CRITICAL REGION FOR localHandler
         pthread_mutex_lock(&setup_mutex);
         if(pthread_create(&localHandler, NULL, handleLocalClient, client) != 0){
-            printf("Creating thread");
+            printf("[main] Creating thread");
             exit(-1);
         }
 

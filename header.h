@@ -6,6 +6,7 @@
 struct data{
     void * payload;
     char hash[HASH_SIZE];
+    bool from_parent;
     size_t size;
 };
 
@@ -44,12 +45,16 @@ pthread_mutex_t passingArgumentsToHandleClip;
 pthread_rwlock_t rwlocks[REGION_SIZE];
 pthread_cond_t cond[REGION_SIZE];
 
+t_lista * new_info[REGION_SIZE]; //FIXME should change this so info doesn't get confused
+
+
+void freeNewInfoNode(void * payload);
 
 
 //Remote and local Comunication functions
 void * getLocalClipboardData(int region);
 struct metaData getLocalClipboardInfo(int region);
-void setLocalRegion(int region, void * payload,size_t size,char*hash);
+struct data * setLocalRegion(int region, void * payload,size_t size,char*hash);
 void * getRemoteData(int sock,struct metaData *info,bool compare,int* err,int* logout);
 int sendDataToRemote(int client,struct metaData info, void* payload);
 
