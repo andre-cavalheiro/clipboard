@@ -44,15 +44,18 @@ void * handleLocalClient(void * client__){
                 //Signal RegionWatch to spread new data
                 pthread_mutex_unlock(&mutex[info.region]);
                 //***************CRITICAL REGION****************
-
+                //***************CRITICAL REGION****************
                 pthread_mutex_lock(&waitingList_mutex[info.region]);
                 waitingLists[info.region] = criaNovoNoLista(waitingLists[info.region],data,&error);
                 pthread_mutex_unlock(&waitingList_mutex[info.region]);
+                //***************CRITICAL REGION****************
+                data->from_parent = 0;
+
                 if(error==1){
                     pthread_exit(NULL);
                     printf("\t[Local] Error adding new info to list\n");
                 }
-                data->from_parent = 0;
+
                 pthread_cond_broadcast(&cond[info.region]);
 
 
@@ -354,7 +357,7 @@ void * regionWatch(void * region_){
         //payload = getLocalClipboardData(region);
         payload = malloc(data->size);
         memcpy(payload,data->payload,data->size);
-        parent = data->from_parent;
+        parent = data->from_parent; //FIXME not being used
 
         printf("[Region watch] [%d] - %s - %zd \n",info.region,info.hash,info.msg_size);
 
@@ -373,6 +376,7 @@ void * regionWatch(void * region_){
         printList(waitingLists[region]);
         waitingLists[region] = free_node(waitingLists[region],&aux2,aux,freeNewInfoNode);
         printList(waitingLists[region]);
+
         pthread_mutex_unlock(&waitingList_mutex[info.region]);
         pthread_mutex_unlock(&mutex[region]);
         //printf("[Region watch] Cleaned things up \n");
@@ -417,7 +421,7 @@ void * spreadTheWord(void *arg){
     //Run through clipboards list and spread the new data
     if(messageToSpread.parent){
         printf("[spreadTheWord] Message came from parent \n");
-        list_size = numItensNaLista(head) -1;
+        list_size = numItensNaLista(head) - 1;
     }else{
         printf("[spreadTheWord] Message came from son/local \n");
         list_size = numItensNaLista(head);
@@ -429,7 +433,6 @@ void * spreadTheWord(void *arg){
     if(list_size != 0){
         printf("[spreadTheWord] Starting to spread the message. List has size %d \n",list_size);
         for(int i=0;i<list_size;i++){
-            //printf("[Region watch] list position %d \n",i);
             node = getItemLista(aux);
             if(sendDataToRemote(node->sock,messageToSpread.info,messageToSpread.payload)!=0){
                 printf("\t[spreadTheWord] !!!!!!!!!!!!!Failed to spread!!!!!!!!!!!!!!!!!!!!!! \n");

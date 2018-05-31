@@ -112,7 +112,6 @@ int main(int argc, char ** argv){
             clipboardString = NULL;
         }
     }
-    unlink(SOCK_LOCAL_ADDR);
     free(bytestream);
     exit(0);
 }

@@ -58,7 +58,7 @@ struct data * setLocalRegion(int region, void * payload,size_t size,char*hash){
     memcpy(data->payload,payload,size);
     data->size = size;
     strncpy(data->hash,hash,HASH_SIZE);
-    //FIXME falta defenir o from parent
+    //FIXME quando sai daqui falta defenir o from parent
     return data;
 }
 
