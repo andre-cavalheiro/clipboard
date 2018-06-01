@@ -149,7 +149,8 @@ void * ClipHub (void * useless){
     
     //Generating random port
     srand(getpid());
-    port = rand()%63714 + 1024; //generate random port between 1024 and 64738
+    //port = rand()%63714 + 1024; //generate random port between 1024 and 64738 //FIXME!!!!!
+    port = rand()%100 + 8000;
     //Create Socket
     sock = createSocket(AF_INET,SOCK_STREAM);
     //Bind Local socket

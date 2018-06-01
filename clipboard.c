@@ -7,14 +7,15 @@ int main(int argc, char** argv) {
     head = iniLista();
     pthread_mutex_init ( &setup_mutex, NULL);
     pthread_mutex_init ( &list_mutex, NULL);
-    for(int i=0;i<REGION_SIZE;i++){
+    int i;
+    for(i=0;i<REGION_SIZE;i++){
         pthread_mutex_init ( &mutex[i], NULL);
         pthread_mutex_init(&waitingList_mutex[i],NULL);
     }
 
     //Local variables
     pthread_t localHandler;
-    int opt,sock,i;
+    int opt,sock;
     struct sigaction shutdown;
     int * client = xmalloc(sizeof(int));
 
