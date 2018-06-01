@@ -205,7 +205,7 @@ void * ClipHub (void * useless){
 
 /**
  * This function is responsible for receiving information from other clipboards and handling
- * the data accordingly: Either save it to the local clipboard or refusing it.
+ * the data accordingly: Either save it to the local clipboard or refuse it.
  *
  * @param arg
  * @return
