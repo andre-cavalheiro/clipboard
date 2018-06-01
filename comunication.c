@@ -166,7 +166,7 @@ int sendDataToRemote(int client,struct metaData info, void* payload){
  * @param sock
  */
 void shutDownClipboard(int sig) {
-    int list_size;
+    int list_size,i;
     int * client;
     t_lista * aux = head;
     struct metaData info;
@@ -176,7 +176,7 @@ void shutDownClipboard(int sig) {
     memcpy(bytestream,&info, sizeof(struct metaData));
 
     //Free clipboard and print final output
-    for (int i = 0; i < REGION_SIZE; i++) {
+    for ( i = 0; i < REGION_SIZE; i++) {
         //Lock region just in case
         pthread_mutex_lock(&mutex[i]);
         pthread_rwlock_wrlock(&rwlocks[i]);
@@ -192,7 +192,7 @@ void shutDownClipboard(int sig) {
     //Inform other clipboards of my death and free memory
     pthread_mutex_lock(&list_mutex);
     list_size = numItensNaLista(head);
-    for (int i = 0; i < list_size; i++) {
+    for (i = 0; i < list_size; i++) {
         client = getItemLista(aux);
         handShake(*client,bytestream,sizeof(struct metaData));
         aux = getProxElementoLista(aux);
@@ -213,11 +213,11 @@ char* generateHash(int size){
     char charset[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX"; //60 characters
     char hashTable[15][4];
     char * hash = xmalloc(size+1);
-    int randomLine,randomColumn;
+    int randomLine,randomColumn,i,j;
 
     //Generate random table
-    for(int i = 0;i<15;i++){
-        for(int j=0;j<4;j++){
+    for(i = 0;i<15;i++){
+        for(j=0;j<4;j++){
             hashTable[i][j]=charset[rand()%60];
         }
     }
@@ -226,7 +226,7 @@ char* generateHash(int size){
     randomLine = rand()%15;
     randomColumn = rand()%4;
 
-    for(int i=0; i< size-1; i++){
+    for(i=0; i< size-1; i++){
         hash[i] = hashTable[randomLine][randomColumn];
 
         randomLine = rand()%15;
@@ -250,7 +250,8 @@ void freePayload(void * payload){
  * Print current clipboard
  */
 void printClipboard(){
-    for(int i=0; i<REGION_SIZE; i++){
+    int i;
+    for(i=0; i<REGION_SIZE; i++){
         printf("   [%d]-[%s] \t %s [%zd bytes]\n",i,clipboard[i].hash,(char*)clipboard[i].payload,clipboard[i].size);
     }
 }

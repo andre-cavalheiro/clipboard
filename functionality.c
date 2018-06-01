@@ -216,7 +216,7 @@ void * handleClipboard(void * arg){
     void * payload = NULL;
     struct metaData info;
     struct data * data = NULL;
-    int error=0, logout = 0;
+    int error=0, logout = 0,i;
     t_lista * aux=NULL,*prev=NULL;
     struct node * node;
 
@@ -224,7 +224,7 @@ void * handleClipboard(void * arg){
      the current local clipboard is send out*/
     if(!remoteClipboard.isParent){
         printf("[HandleClipboard] A child contacted me for the first time, sending all the data \n");
-        for(int i=0;i<REGION_SIZE;i++){
+        for(i=0;i<REGION_SIZE;i++){
             info = getLocalClipboardInfo(i);
             info.action = 0;
             payload = getLocalClipboardData(i);
@@ -400,6 +400,7 @@ void * regionWatch(void * region_){
  */
 void * spreadTheWord(void *arg){
     struct spread * argument;
+    int i;
     argument = arg;
     struct spread messageToSpread;
     messageToSpread.region = argument->region;
@@ -425,7 +426,7 @@ void * spreadTheWord(void *arg){
     prev = NULL;
     if(list_size != 0){
         printf("[spreadTheWord] Starting to spread the message. List has size %d \n",list_size);
-        for(int i=0;i<list_size;i++){
+        for(i=0;i<list_size;i++){
             node = getItemLista(aux);
             if(sendDataToRemote(node->sock,messageToSpread.info,messageToSpread.payload)!=0){
                 printf("\t[spreadTheWord] !!!!!!!!!!!!!Failed to spread!!!!!!!!!!!!!!!!!!!!!! \n");
@@ -453,11 +454,11 @@ void * spreadTheWord(void *arg){
 int ClipSync(int parent_id){
     struct metaData info;
     void * received;
-    int error, logout;
+    int error, logout,i;
     printf("[ClipSync] Initiating process\n");
     //Request Data
 
-    for(int i=0;i<REGION_SIZE;i++){
+    for( i=0;i<REGION_SIZE;i++){
         received = getRemoteData(parent_id,&info,false,&error,&logout);
         if(error == 1){
             //Handle error

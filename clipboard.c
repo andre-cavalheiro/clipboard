@@ -14,12 +14,12 @@ int main(int argc, char** argv) {
 
     //Local variables
     pthread_t localHandler;
-    int opt,sock;
+    int opt,sock,i;
     struct sigaction shutdown;
     int * client = xmalloc(sizeof(int));
 
     //Clipboard setup
-    for(int i=0;i<REGION_SIZE;i++){
+    for( i=0;i<REGION_SIZE;i++){
         clipboard[i].size =1 ;              //We'll just have to live with this
         clipboard[i].payload = calloc(1,clipboard[i].size);   //Don't fill payload with anything!
         clipboard[i].hash[0] = '\0';
@@ -90,7 +90,7 @@ int main(int argc, char** argv) {
     /*Create a thread for each region of the clipboard that will inform other
     clipboards when a change occurs*/
     int region[REGION_SIZE];
-    for(int i=0;i<REGION_SIZE;i++){
+    for(i=0;i<REGION_SIZE;i++){
         region[i]=i;
         pthread_mutex_lock(&setup_mutex);
         pthread_create(&localHandler,NULL,regionWatch,&region[i]);
