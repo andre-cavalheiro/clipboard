@@ -18,6 +18,8 @@ void * handleLocalClient(void * client__){
     struct data * data = NULL;
     int error = 0;
 
+    pthread_detach(pthread_self());
+
     while(1){
         //printf("[Local] Ready to receive \n");
 
@@ -81,7 +83,7 @@ void * handleLocalClient(void * client__){
                     pthread_exit(NULL);
                 }
                 if(sendData(client,info.msg_size,payload) != info.msg_size){
-                    pthread_exit(NULL);
+                    pthread_detach(pthread_self());
                 }
 
                 //printf("[Local] Paste completed\n");
@@ -125,7 +127,7 @@ void * handleLocalClient(void * client__){
                 if(bytestream != NULL){
                     free(bytestream);
                 }
-                pthread_exit(NULL);
+                pthread_detach(pthread_self());
                 break;
         }
         if(bytestream != NULL){
@@ -146,7 +148,9 @@ void * ClipHub (void * useless){
     int clip_read,clip_write;
     struct node * listNode = NULL;
     struct argument * sonArg = xmalloc(sizeof(struct argument));
-    
+
+    pthread_detach(pthread_self());
+
     //Generating random port
     srand(getpid());
     //port = rand()%63714 + 1024; //generate random port between 1024 and 64738 //FIXME!!!!!
@@ -187,7 +191,7 @@ void * ClipHub (void * useless){
         listNode->id = id++;
         pthread_mutex_lock(&list_mutex);
         head = criaNovoNoLista(head,listNode,&err);
-        printList();
+        printListClipboards();
         pthread_mutex_unlock(&list_mutex);
         if(err !=0){
             printf("\t[ClipHub] !!!!!!!! Error creating new node\n");
@@ -221,6 +225,8 @@ void * handleClipboard(void * arg){
     t_lista * aux=NULL,*prev=NULL;
     struct node * node;
 
+    pthread_detach(pthread_self());
+
     /*Whenever a remote clipboard connects to this one,
      the current local clipboard is send out*/
     if(!remoteClipboard.isParent){
@@ -242,7 +248,7 @@ void * handleClipboard(void * arg){
                     prev = aux;
                     aux = getProxElementoLista(aux);
                 }
-                printList();
+                printListClipboards();
                 pthread_mutex_unlock(&list_mutex);            }
         }
         printf("[HandleClipboard] Child is updated \n");
@@ -269,7 +275,7 @@ void * handleClipboard(void * arg){
                     prev = aux;
                     aux = getProxElementoLista(aux);
             }
-            printList();
+            printListClipboards();
             pthread_mutex_unlock(&list_mutex);
             pthread_exit(NULL);
 
@@ -331,6 +337,8 @@ void * regionWatch(void * region_){
     pthread_t hermes;
     bool parent = 0;
 
+    pthread_detach(pthread_self());
+
     messageToSpread->region=region;
     messageToSpread->parent=parent;
     info.region = region;
@@ -369,8 +377,9 @@ void * regionWatch(void * region_){
         }else{
             aux2=NULL;
         }
-
+        printWaitingList(region);
         waitingLists[region] = free_node(waitingLists[region],&aux2,aux,freeWaitingListNode);
+        printWaitingList(region);
 
         pthread_mutex_unlock(&waitingList_mutex[info.region]);
         pthread_mutex_unlock(&mutex[region]);
@@ -413,6 +422,9 @@ void * spreadTheWord(void *arg){
     int list_size;
     t_lista * aux=NULL, *prev=NULL;
     struct node *node = NULL;
+
+    pthread_detach(pthread_self());
+
     //Run through clipboards list and spread the new data
     if(messageToSpread.parent){
         printf("[spreadTheWord] Message came from parent \n");
@@ -422,7 +434,7 @@ void * spreadTheWord(void *arg){
         list_size = numItensNaLista(head);
     }
     pthread_mutex_lock(&list_mutex);
-    printList();
+    printListClipboards();
     aux = head;
     prev = NULL;
     if(list_size != 0){
@@ -431,6 +443,7 @@ void * spreadTheWord(void *arg){
             node = getItemLista(aux);
             if(sendDataToRemote(node->sock,messageToSpread.info,messageToSpread.payload)!=0){
                 printf("\t[spreadTheWord] !!!!!!!!!!!!!Failed to spread!!!!!!!!!!!!!!!!!!!!!! \n");
+                aux = getProxElementoLista(aux);
                 head = free_node(head,&prev, aux,freePayload);
                 continue;
             }
@@ -475,19 +488,4 @@ int ClipSync(int parent_id){
 }
 
 
-void printList(){
-    int * client;
-    t_lista* aux = head;
-    printf("====\n");
-    while(aux != NULL){
-        client = getItemLista(aux);
-        printf("%d\t",*client);
-        aux = getProxElementoLista(aux);
-    }
-    printf("\n====\n");
-}
 
-void freeWaitingListNode(void * payload){
-    struct data * data = payload;
-    free(data->payload);
-}

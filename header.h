@@ -76,4 +76,5 @@ void * xmalloc(size_t size);
 
 //Clipboard development functions
 void printClipboard();
-void printList();
+void printListClipboards();
+void printWaitingList(int region);

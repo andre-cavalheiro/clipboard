@@ -247,14 +247,15 @@ void freePayload(void * payload){
 
 
 /**
- * Print current clipboard
+ *
+ * @param payload
  */
-void printClipboard(){
-    int i;
-    for(i=0; i<REGION_SIZE; i++){
-        printf("   [%d]-[%s] \t %s [%zd bytes]\n",i,clipboard[i].hash,(char*)clipboard[i].payload,clipboard[i].size);
-    }
+void freeWaitingListNode(void * payload){
+    struct data * data = payload;
+    free(data->payload);
 }
+
+
 
 
 /**
@@ -271,3 +272,45 @@ void * xmalloc(size_t size){
     return ptr;
 }
 
+
+/**
+ * Print current clipboard
+ */
+void printClipboard(){
+    int i;
+    for(i=0; i<REGION_SIZE; i++){
+        printf("   [%d]-[%s] \t %s [%zd bytes]\n",i,clipboard[i].hash,(char*)clipboard[i].payload,clipboard[i].size);
+    }
+}
+
+
+/**
+ *
+ */
+void printListClipboards(){
+    int * client;
+    t_lista* aux = head;
+    printf("====Clipboards\n");
+    while(aux != NULL){
+        client = getItemLista(aux);
+        printf("%d\t",*client);
+        aux = getProxElementoLista(aux);
+    }
+    printf("\n====\n");
+}
+
+
+/**
+ *
+ */
+void printWaitingList(int region){
+    int * client;
+    t_lista* aux = waitingLists[region];
+    printf("====WaitingList\n");
+    while(aux != NULL){
+        client = getItemLista(aux);
+        printf("%d\t",*client);
+        aux = getProxElementoLista(aux);
+    }
+    printf("\n====\n");
+}
