@@ -33,7 +33,6 @@ struct spread{
 
 //Global Variables
 struct data clipboard[REGION_SIZE];
-bool new_data[REGION_SIZE];
 bool from_parent[REGION_SIZE];
 t_lista * head;
 
@@ -76,5 +75,3 @@ void * xmalloc(size_t size);
 
 //Clipboard development functions
 void printClipboard();
-void printListClipboards();
-void printWaitingList(int region);

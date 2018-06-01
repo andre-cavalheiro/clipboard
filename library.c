@@ -107,7 +107,7 @@ int clipboard_paste(int clipboard_id, int region, void *buf, size_t count){
     }
     memcpy(&info,bytestream,sizeof(struct metaData));
     free(bytestream);
-    received = malloc(info.msg_size);                                   //FIXME Check if malloc is necessary, i dont think so
+    received = NULL;
 
     //Get data
 	if((received = receiveData(clipboard_id,info.msg_size))==NULL){

@@ -1,6 +1,5 @@
 #include "header.h"
 
-#define _GNU_SOURCE
 
 int main(int argc, char** argv) {
     //Global variable initialization
@@ -46,7 +45,6 @@ int main(int argc, char** argv) {
 
         //Get user arguments
         ip = optarg;
-        printf("%s   %d\n", ip, port);
 
         //Bind sockets for parent comunication
         InternetClientSocket(parent_sock_write, ip, port);
@@ -60,7 +58,8 @@ int main(int argc, char** argv) {
             node->id = 0;
             head = criaNovoNoLista(head, node, &err);
             if (err != 0) {
-                printf("[main] Error creating node\n");
+                perror("[main] Error creating node\n");
+                exit(-1);
             }
 
 
@@ -70,17 +69,17 @@ int main(int argc, char** argv) {
             parentArg->sock = parent_sock_read;
             pthread_mutex_lock(&passingArgumentsToHandleClip);
             if (pthread_create(&parent_connection, NULL, handleClipboard, parentArg) != 0) {
-                perror("[main] Creating thread\n");
+                perror("[main] Creating handleClipboard\n");
                 exit(-1);
             }
         }else{
-            printf("Unable to comunicate to remote clipboard\n");
+            perror("Unable to comunicate to remote clipboard\n");
         }
     }
 
     //Creates clipboard hub to allow connections from other clipboards
     if (pthread_create(&clipboard_hub, NULL, ClipHub, NULL) != 0) {
-        perror("[main]Creating thread\n");
+        perror("[main]Creating clipboard hub\n");
         exit(-1);
     }
 
@@ -112,19 +111,15 @@ int main(int argc, char** argv) {
     UnixServerSocket(sock,SOCK_LOCAL_ADDR,5);
 
 
-
     // Handle Local clients
     while(1){
-
-        printf("[main] Ready to accept \n");
-
         if((*client = accept(sock, NULL, NULL)) == -1) {
             perror("[main] accept");
             exit(-1);
         }
         pthread_mutex_lock(&setup_mutex);
         if(pthread_create(&localHandler, NULL, handleLocalClient, client) != 0){
-            printf("[main] Creating thread");
+            perror("[main] Creating local handler \n");
             exit(-1);
         }
 

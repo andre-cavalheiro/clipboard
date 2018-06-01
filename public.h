@@ -13,8 +13,6 @@
 #define REGION_SIZE 10
 #define HASH_SIZE  10
 #define SIG_SOCKET "SIG_SOCKET"
-
-
 //handshake struct
 /*0->client wants to send data to server. 1->client is requesting data from server.
 2->Local client is logging out.     3-> wait    4-> Remote end this connection or refusing information*/

@@ -33,7 +33,6 @@ int UnixServerSocket(int sockId, char * path, int maxQueueLength){
     struct sockaddr_un local_addr ;
     local_addr.sun_family = AF_UNIX;
     strcpy(local_addr.sun_path, path);
-    printf("[UnixServerSocket] %s\n",local_addr.sun_path);
     if(bind(sockId,(struct sockaddr *)&local_addr, sizeof(struct sockaddr_un)) == -1) {
         //Try to unlink before throwing error
         unlink(path);
@@ -60,7 +59,6 @@ int UnixServerSocket(int sockId, char * path, int maxQueueLength){
  * @return
  */
 int InternetServerSocket(int sockId, int port,int maxQueueLength){
-    //printf("Porto: %d \n",port);
     //Bind
     struct sockaddr_in local_addr;
     local_addr.sin_family = AF_INET;
@@ -89,7 +87,6 @@ int UnixClientSocket(int sockId , char * path){
     struct sockaddr_un local_addr ;
     local_addr.sun_family = AF_UNIX;
     strcpy(local_addr.sun_path, path);
-    printf("[UnixClientSocket] About to connect fd %d to %s \n",sockId,path);
     if(connect(sockId, (const struct sockaddr *) &local_addr, sizeof(struct sockaddr_un))==-1){
         perror("connect: ");
         return -1;
@@ -130,7 +127,6 @@ int InternetClientSocket(int sockId, char *ip, int port){
  * @return
  */
 int handShake(int sockId, void * info, size_t size){
-    //printf("\t[Handshake] about to send %s\n",(char*)info);
     if((write(sockId, info, size ))==-1){
         perror("handshake write: ");
         return -1;
@@ -142,10 +138,9 @@ int handShake(int sockId, void * info, size_t size){
         return -1;
     }
     if(received != 1){
-        printf("handshake miscommunication \n");
+        perror("handshake miscommunication \n");
         return -1;
     }
-    //printf("\t[Handshake] Successful \n");
     return 0;
 }
 
@@ -163,7 +158,6 @@ void * handleHandShake(int clientId, size_t size){
         perror("handleHandshake read: ");
         return NULL;
     }
-    //printf("\t[Handle Handshake] Read Data \n");
     //Send integer 1 to confirm reception
     int confirm = 1;
     if((write(clientId,&confirm, sizeof(int)))==-1){
@@ -171,7 +165,6 @@ void * handleHandShake(int clientId, size_t size){
         free(received);
         return NULL;
     }
-    //printf("\t[Handle Handshake] Successful \n");
     return received;
 }
 
@@ -186,16 +179,13 @@ void * handleHandShake(int clientId, size_t size){
 int sendData(int sockId, size_t size, void * msg){
     size_t count = size;
     size_t sentBytes = 0;
-    //printf("[sendData] About to send: %s",msg);
     while(count > 0){
         if((sentBytes = send(sockId,msg,size,0))==-1){
             perror("sendData write: ");
             return (size - count);
         }
-        //printf("\t Wrote %zd bytes \n",sentBytes);
         count -= sentBytes;
     }
-    //printf("\t[sendData] Total message sent\n");
     return size;
 }
 
@@ -210,7 +200,6 @@ void * receiveData(int sockId,size_t size){
     size_t count = size;
     size_t readBytes = 0;
     void * str = malloc(size+1);
-    //printf("[ReceiveData] Receiving:\n");
     while(count > 0){
         if((readBytes = recv(sockId,str+readBytes,size,0)) == -1){
             perror("sendData write: ");
@@ -219,6 +208,5 @@ void * receiveData(int sockId,size_t size){
         }
         count -= readBytes;
     }
-    //printf("\t[ReceiveData] %s \n",str);
     return str;
 }

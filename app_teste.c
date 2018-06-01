@@ -33,13 +33,12 @@ int main(int argc, char ** argv){
 			printf("What region?\t");
 			scanf("%d",&region);
             getchar();
-            clipboardString = malloc(maxsize);
+            clipboardString = calloc(1,maxsize);
             if((verify=clipboard_paste(sock,region,clipboardString,maxsize)) > 0){
                 printf("[%d](%d) - %s \n",region,verify,clipboardString);
             }else{
                 printf("Error while pasting\n");
             }
-			continue;   //FIXME am i supposed to be here?
 		}
 		//Copy
 		else if(strcmp(command,"c\n") == 0) {
@@ -71,19 +70,21 @@ int main(int argc, char ** argv){
             if(clipboard_copy(sock,region,clipboardString,strlen(clipboardString)) == 0){
                 printf("Error copying \n");
             }
-			continue;
 		}
 		//Display all
 		else if(strcmp(command,"a\n") == 0){
-            clipboardString = malloc(maxsize);
             for(region=0;region<REGION_SIZE;region++){
+                clipboardString = calloc(1,maxsize);
                 if((verify=clipboard_paste(sock,region,clipboardString,maxsize)) > 0){
                     printf("[%d](%d) - %s\n",region,verify,clipboardString);
                 }else{
                     printf("Error while pasting\n");
                 }
+                if(clipboardString != NULL){
+                    free(clipboardString);
+                    clipboardString=NULL;
+                }
             }
-			continue;
         }
         //Wait
         else if(strcmp(command,"w\n") == 0){
@@ -97,7 +98,6 @@ int main(int argc, char ** argv){
                 printf("Error while pasting\n");
             }
 
-            continue;
         }
         //Exit
         else if(strcmp(command,"e\n") == 0){
@@ -105,7 +105,6 @@ int main(int argc, char ** argv){
             clipboard_close(sock);
             break;
         }
-
 
         if(clipboardString != NULL){
             free(clipboardString);

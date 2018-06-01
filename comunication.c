@@ -58,7 +58,8 @@ struct data * setLocalRegion(int region, void * payload,size_t size,char*hash){
     memcpy(data->payload,payload,size);
     data->size = size;
     strncpy(data->hash,hash,HASH_SIZE);
-    //When leaving this function, the from_parent is still to be defined
+
+    //When leaving this function, the from_parent parameter in data is still to be defined
     return data;
 }
 
@@ -94,7 +95,7 @@ void * getRemoteData(int sock,struct metaData *info,bool compare,int* error,int*
                 *error = 1;
                 return NULL;
             }
-            return NULL;    //Not error
+            return NULL;
     }
 
     info->action = 1;
@@ -102,7 +103,7 @@ void * getRemoteData(int sock,struct metaData *info,bool compare,int* error,int*
     if(handShake(sock,bytestream,sizeof(struct metaData)) != 0){
         free(bytestream);
         *error = 1;
-        return NULL;    //error
+        return NULL;
     }
 
 
@@ -130,27 +131,23 @@ int sendDataToRemote(int client,struct metaData info, void* payload){
     memcpy(bytestream,&info,sizeof(struct metaData));
 
     if(handShake(client,bytestream,sizeof(struct metaData)) == -1){
-        //this socket is dead, removing the corpse(node)...
-        printf("[sendRemoteData] DEAD NODE\n");
+        //Removing dead socket from list
+        perror("\t[sendRemoteData] handShake FAILED\n");
         free(bytestream);
         return -1;
     }
-    //printf("[sendRemoteData] Handshake went good \n");
     if((bytestream = handleHandShake(client,sizeof(struct metaData)))==NULL){
-        printf("[senDataToRemote] handleHandShake FAILED! \n");
+        perror("\t[senDataToRemote] handleHandShake FAILED! \n");
         exit(0);
     }
-    //printf("[sendRemoteData] Handle handshake went good \n");
     memcpy(&info,bytestream,sizeof(struct metaData));
-    //If remote informs me that he does not have the message send it
+
+    //If remote informs me that he does not have the message then send it
     if(info.action != 4){
-        //printf("[sendRemoteData] Sending data \n");
         if((sendData(client,info.msg_size,payload)) != info.msg_size){
-            printf("[senDataToRemote]] THE ENTIRE MESSAGE WAS NOT SEND\n");
+            perror("\t[senDataToRemote]] The entire message was not sent\n");
         }
-        //printf("[sendRemoteData] Done sending\n");
     }else{
-        printf("[senDataToRemote] Client refused information [%s]\n",info.hash);
     }
     free(bytestream);
     return 0;
@@ -247,15 +244,16 @@ void freePayload(void * payload){
 
 
 /**
- *
- * @param payload
+ * Print current clipboard
  */
-void freeWaitingListNode(void * payload){
-    struct data * data = payload;
-    free(data->payload);
+void printClipboard(){
+    int i;
+    pthread_mutex_lock(&list_mutex);
+    for(i=0; i<REGION_SIZE; i++){
+        printf("   [%d]-[%s] \t %s [%zd bytes]\n",i,clipboard[i].hash,(char*)clipboard[i].payload,clipboard[i].size);
+    }
+    pthread_mutex_unlock(&list_mutex);
 }
-
-
 
 
 /**
@@ -272,45 +270,3 @@ void * xmalloc(size_t size){
     return ptr;
 }
 
-
-/**
- * Print current clipboard
- */
-void printClipboard(){
-    int i;
-    for(i=0; i<REGION_SIZE; i++){
-        printf("   [%d]-[%s] \t %s [%zd bytes]\n",i,clipboard[i].hash,(char*)clipboard[i].payload,clipboard[i].size);
-    }
-}
-
-
-/**
- *
- */
-void printListClipboards(){
-    int * client;
-    t_lista* aux = head;
-    printf("====Clipboards\n");
-    while(aux != NULL){
-        client = getItemLista(aux);
-        printf("%d\t",*client);
-        aux = getProxElementoLista(aux);
-    }
-    printf("\n====\n");
-}
-
-
-/**
- *
- */
-void printWaitingList(int region){
-    int * client;
-    t_lista* aux = waitingLists[region];
-    printf("====WaitingList\n");
-    while(aux != NULL){
-        client = getItemLista(aux);
-        printf("%d\t",*client);
-        aux = getProxElementoLista(aux);
-    }
-    printf("\n====\n");
-}
