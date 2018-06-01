@@ -145,7 +145,7 @@ void * ClipHub (void * useless){
     pthread_t clipboard_comm;
     int clip_read,clip_write;
     struct node * listNode = NULL;
-    struct argument * sonArg = malloc(sizeof(struct argument));
+    struct argument * sonArg = xmalloc(sizeof(struct argument));
     
     //Generating random port
     srand(getpid());
@@ -181,7 +181,7 @@ void * ClipHub (void * useless){
             perror("[Cliphub] accept");
             exit(-1);
         }
-        listNode = malloc(sizeof(struct node));
+        listNode = xmalloc(sizeof(struct node));
         listNode->sock = clip_write;
         listNode->id = id++;
         pthread_mutex_lock(&list_mutex);
@@ -229,8 +229,20 @@ void * handleClipboard(void * arg){
             info.action = 0;
             payload = getLocalClipboardData(i);
             if(sendDataToRemote(remoteClipboard.sock,info,payload)!= 0){
-                //FIXME
-            }
+                pthread_mutex_lock(&list_mutex);
+                aux = head;
+                while(aux != NULL){
+                    node = getItemLista(aux);
+                    if(remoteClipboard.id == node->id){
+                        printf("\t[HandleClipboard] Removing [%d] from connected clipboards \n",remoteClipboard.id);
+                        head = free_node(head,&prev, aux,freePayload);
+                        break;
+                    }
+                    prev = aux;
+                    aux = getProxElementoLista(aux);
+                }
+                printList();
+                pthread_mutex_unlock(&list_mutex);            }
         }
         printf("[HandleClipboard] Child is updated \n");
     }
@@ -239,9 +251,8 @@ void * handleClipboard(void * arg){
     //Wait for an update by the remote clipboard
     while(1){
         //Receive information about the new data and verify if it's actually new
-        //FIXME maybe should go through the all waitingLists list
         payload = getRemoteData(remoteClipboard.sock, &info, remoteClipboard.isParent,&error,&logout);
-        if(logout == 1){
+        if(logout == 1 || error == 1){
             //Handle clipboard disconnection
             printf("\t[HandleClipboard] Remote Client is logging out\n" );
             aux = head;
@@ -251,58 +262,46 @@ void * handleClipboard(void * arg){
                     node = getItemLista(aux);
                     if(remoteClipboard.id == node->id){
                         printf("\t[HandleClipboard] Removing [%d] from connected clipboards \n",remoteClipboard.id);
-                        for(int j=0;j<REGION_SIZE;j++){
-
-                        }
                         head = free_node(head,&prev, aux,freePayload);
                         break;
                     }
                     prev = aux;
                     aux = getProxElementoLista(aux);
-                }
+            }
             printList();
             pthread_mutex_unlock(&list_mutex);
             pthread_exit(NULL);
 
         }
-        if(error == 1){
-            //Handle error
-            printf("\t[HandleClipboard] Error receiving information!\n");
-            //FIXME
-            exit(0);
-            error = 0;
-            continue;
-        }
         if(payload == NULL){
             printf("\t[HandleClipboard] I already had this information \n");
-            continue;
+        }else{
+
+            //Update Local Clipboard
+            data=setLocalRegion(info.region,payload,info.msg_size,info.hash);
+            printf("[HandleClipboard] Received and updated: [%d] - %s \n",info.region,info.hash );
+
+            strncpy(data->hash,info.hash,HASH_SIZE);
+            data->from_parent = remoteClipboard.isParent;
+            pthread_mutex_lock(&waitingList_mutex[info.region]);
+            waitingLists[info.region] = criaNovoNoLista(waitingLists[info.region],data,&error);
+            pthread_mutex_unlock(&waitingList_mutex[info.region]);
+            if(error==1){
+                printf("\t[HandleClipboard] Error adding new info to list\n");
+            }
+
+            //***************CRITICAL REGION****************
+            pthread_mutex_lock(&mutex[info.region]);
+            new_data[info.region]=true;
+            from_parent[info.region]=remoteClipboard.isParent;
+            //Send signal to spread new data
+            pthread_cond_broadcast(&cond[info.region]);
+            pthread_mutex_unlock(&mutex[info.region]);
+            //***************CRITICAL REGION****************
+
+
+            printClipboard();
         }
-        //Update Local Clipboard
-        data=setLocalRegion(info.region,payload,info.msg_size,info.hash);
-        printf("[HandleClipboard] Received and updated: [%d] - %s \n",info.region,info.hash );
-
-        strncpy(data->hash,info.hash,HASH_SIZE);
-        data->from_parent = remoteClipboard.isParent;
-        pthread_mutex_lock(&waitingList_mutex[info.region]);
-        waitingLists[info.region] = criaNovoNoLista(waitingLists[info.region],data,&error);
-        pthread_mutex_unlock(&waitingList_mutex[info.region]);
-        if(error==1){
-            printf("\t[HandleClipboard] Error adding new info to list\n");
-        }
-
-        //***************CRITICAL REGION****************
-        pthread_mutex_lock(&mutex[info.region]);
-        new_data[info.region]=true;
-        from_parent[info.region]=remoteClipboard.isParent;
-        //Send signal to spread new data
-        pthread_cond_broadcast(&cond[info.region]);
-        pthread_mutex_unlock(&mutex[info.region]);
-        //***************CRITICAL REGION****************
-
-
-
-        printClipboard();
-
     }
 }
 
@@ -325,7 +324,7 @@ void * regionWatch(void * region_){
     t_lista * aux2 = NULL;
     struct data * data = NULL;
 
-    struct spread * messageToSpread = malloc(sizeof(struct spread));
+    struct spread * messageToSpread = xmalloc(sizeof(struct spread));
     struct metaData info;
     void * payload = NULL;
     pthread_t hermes;
@@ -354,16 +353,12 @@ void * regionWatch(void * region_){
         info.msg_size = data->size;
         strncpy(info.hash,data->hash,HASH_SIZE);
 
-        //payload = getLocalClipboardData(region);
-        payload = malloc(data->size);
+        payload = xmalloc(data->size);
         memcpy(payload,data->payload,data->size);
-        parent = data->from_parent; //FIXME not being used
 
         printf("[Region watch] [%d] - %s - %zd \n",info.region,info.hash,info.msg_size);
 
-
         //Cleanup for condition wait
-        //new_data[region] = false;
         pthread_mutex_lock(&waitingList_mutex[info.region]);
         if(getProxElementoLista(aux)!= NULL){
             aux2=waitingLists[region];
@@ -373,15 +368,13 @@ void * regionWatch(void * region_){
         }else{
             aux2=NULL;
         }
-        printList(waitingLists[region]);
-        waitingLists[region] = free_node(waitingLists[region],&aux2,aux,freeNewInfoNode);
-        printList(waitingLists[region]);
+
+        waitingLists[region] = free_node(waitingLists[region],&aux2,aux,freeWaitingListNode);
 
         pthread_mutex_unlock(&waitingList_mutex[info.region]);
         pthread_mutex_unlock(&mutex[region]);
-        //printf("[Region watch] Cleaned things up \n");
 
-        messageToSpread->payload = malloc(info.msg_size);
+        messageToSpread->payload = xmalloc(info.msg_size);
         memcpy(messageToSpread->payload,payload,info.msg_size);
         messageToSpread->info.msg_size = info.msg_size;
         strncpy(messageToSpread->info.hash,info.hash,HASH_SIZE);
@@ -468,9 +461,7 @@ int ClipSync(int parent_id){
         received = getRemoteData(parent_id,&info,false,&error,&logout);
         if(error == 1){
             //Handle error
-            //FIXME
-            error = 0;
-            continue;
+            return -1;
         }
         printf("[ClipSync] Received [%d] - %s \n",info.region,info.hash );
         setLocalRegion(i,received,info.msg_size,info.hash);
@@ -494,8 +485,7 @@ void printList(){
     printf("\n====\n");
 }
 
-//FIXME should have diferent name
-void freeNewInfoNode(void * payload){
+void freeWaitingListNode(void * payload){
     struct data * data = payload;
     free(data->payload);
 }

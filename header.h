@@ -31,7 +31,6 @@ struct spread{
     bool parent;
 };
 
-
 //Global Variables
 struct data clipboard[REGION_SIZE];
 bool new_data[REGION_SIZE];
@@ -49,8 +48,6 @@ pthread_cond_t cond[REGION_SIZE];
 
 t_lista * waitingLists[REGION_SIZE];
 
-
-void freeNewInfoNode(void * payload);
 
 
 //Remote and local Comunication functions
@@ -74,6 +71,8 @@ int ClipSync(int parent_id);
 void shutDownClipboard(int );
 char * generateHash(int size);
 void freePayload(void * payload);
+void freeWaitingListNode(void * payload);
+void * xmalloc(size_t size);
 
 //Clipboard development functions
 void printClipboard();

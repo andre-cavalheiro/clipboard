@@ -11,7 +11,7 @@ void * getLocalClipboardData(int region){
     void * payload = NULL;
 
     pthread_rwlock_rdlock(&rwlocks[region]);
-    payload = malloc(clipboard[region].size+10);
+    payload = xmalloc(clipboard[region].size+10);
     memcpy(payload,clipboard[region].payload,clipboard[region].size+5);
     pthread_rwlock_unlock(&rwlocks[region]);
 
@@ -43,7 +43,7 @@ struct metaData getLocalClipboardInfo(int region){
  * @param size
  */
 struct data * setLocalRegion(int region, void * payload,size_t size,char*hash){
-    struct data * data = malloc(sizeof(struct data));
+    struct data * data = xmalloc(sizeof(struct data));
     if(hash == NULL){
         hash = generateHash(HASH_SIZE);
     }
@@ -54,11 +54,11 @@ struct data * setLocalRegion(int region, void * payload,size_t size,char*hash){
     clipboard[region].payload = payload;
     pthread_rwlock_unlock(&rwlocks[region]);
 
-    data->payload = malloc(size);
+    data->payload = xmalloc(size);
     memcpy(data->payload,payload,size);
     data->size = size;
     strncpy(data->hash,hash,HASH_SIZE);
-    //FIXME quando sai daqui falta defenir o from parent
+    //When leaving this function, the from_parent is still to be defined
     return data;
 }
 
@@ -126,7 +126,7 @@ void * getRemoteData(int sock,struct metaData *info,bool compare,int* error,int*
  * @return
  */
 int sendDataToRemote(int client,struct metaData info, void* payload){
-    void * bytestream = malloc(sizeof(struct metaData));
+    void * bytestream = xmalloc(sizeof(struct metaData));
     memcpy(bytestream,&info,sizeof(struct metaData));
 
     if(handShake(client,bytestream,sizeof(struct metaData)) == -1){
@@ -170,7 +170,7 @@ void shutDownClipboard(int sig) {
     int * client;
     t_lista * aux = head;
     struct metaData info;
-    void * bytestream = malloc(sizeof(struct metaData));
+    void * bytestream = xmalloc(sizeof(struct metaData));
 
     info.action = 4;
     memcpy(bytestream,&info, sizeof(struct metaData));
@@ -212,7 +212,7 @@ void shutDownClipboard(int sig) {
 char* generateHash(int size){
     char charset[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX"; //60 characters
     char hashTable[15][4];
-    char * hash = malloc(size+1);
+    char * hash = xmalloc(size+1);
     int randomLine,randomColumn;
 
     //Generate random table
@@ -245,6 +245,7 @@ void freePayload(void * payload){
     free(payload);
 }
 
+
 /**
  * Print current clipboard
  */
@@ -255,4 +256,17 @@ void printClipboard(){
 }
 
 
+/**
+ *
+ * @param size
+ * @return
+ */
+void * xmalloc(size_t size){
+    void * ptr = malloc(size);
+    if(ptr==NULL){
+        perror("Error alocating memory");
+        exit(-1);
+    }
+    return ptr;
+}
 
